@@ -89,6 +89,20 @@ target_link_libraries(picoquicdemo picoquic-core
     ${CMAKE_DL_LIBS}
 )
 
+add_executable(picoquicclient picoquicfirst/picoquicclient.c)
+target_link_libraries(picoquicclient picoquic-core
+	${PTLS_LIBRARIES}
+	${OPENSSL_LIBRARIES}
+	${CMAKE_DL_LIBS}
+)
+
+add_executable(picoquicserver picoquicfirst/picoquicserver.c)
+target_link_libraries(picoquicserver picoquic-core
+	${PTLS_LIBRARIES}
+	${OPENSSL_LIBRARIES}
+	${CMAKE_DL_LIBS}
+)
+
 add_executable(picoquic_ct picoquic_t/picoquic_t.c
  ${PICOQUIC_TEST_LIBRARY_FILES} )
 target_link_libraries(picoquic_ct picoquic-core
