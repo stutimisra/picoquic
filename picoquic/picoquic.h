@@ -35,6 +35,9 @@
 #include <unistd.h>
 #endif
 
+// XIA includes
+#include "xia.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -187,8 +190,8 @@ int picoquic_is_handshake_error(uint16_t error_code);
 
 typedef struct st_picoquic_stateless_packet_t {
     struct st_picoquic_stateless_packet_t* next_packet;
-    struct sockaddr_storage addr_to;
-    struct sockaddr_storage addr_local;
+    sockaddr_x addr_to;
+    sockaddr_x addr_local;
     unsigned long if_index_local;
     size_t length;
     uint64_t cnxid_log64;

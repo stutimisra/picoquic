@@ -26,6 +26,7 @@
 #include "picoquic.h"
 #include "picotlsapi.h"
 #include "util.h"
+#include "xia.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -472,9 +473,9 @@ typedef struct st_picoquic_path_t {
     uint64_t remote_cnxid_sequence;
 
     /* Peer address. */
-    struct sockaddr_storage peer_addr;
+    sockaddr_x peer_addr;
     int peer_addr_len;
-    struct sockaddr_storage local_addr;
+    sockaddr_x local_addr;
     int local_addr_len;
     unsigned long if_index_dest;
     /* Public reset secret, provisioned by the peer */
@@ -486,9 +487,9 @@ typedef struct st_picoquic_path_t {
     uint64_t demotion_time;
     uint8_t challenge_repeat_count;
     /* Alternative address, used when validating NAT rebinding */
-    struct sockaddr_storage alt_peer_addr;
+    sockaddr_x alt_peer_addr;
     int alt_peer_addr_len;
-    struct sockaddr_storage alt_local_addr;
+    sockaddr_x alt_local_addr;
     int alt_local_addr_len;
     unsigned long alt_if_index_dest;
     /* Challenge used for the NAT rebinding tests */
@@ -613,9 +614,9 @@ typedef struct st_picoquic_probe_t {
     picoquic_connection_id_t remote_cnxid; 
     uint8_t reset_secret[PICOQUIC_RESET_SECRET_SIZE];
     /* Addresses with which the probe was sent */
-    struct sockaddr_storage peer_addr;
+    sockaddr_x peer_addr;
     int peer_addr_len;
-    struct sockaddr_storage local_addr;
+    sockaddr_x local_addr;
     int local_addr_len;
     unsigned long if_index_dest;
     /* Challenge used by this probe */

@@ -302,7 +302,7 @@ int picoquic_store_addr(struct sockaddr_storage * stored_addr, const struct sock
         memcpy(stored_addr, addr, len);
     }
     else {
-        memset(stored_addr, 0, sizeof(struct sockaddr_storage));
+        memset(stored_addr, 0, sizeof(sockaddr_x));
     }
 
     return len;
