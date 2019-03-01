@@ -61,6 +61,40 @@ int picoquic_xia_open_server_socket(char * aid, GraphPtr& my_addr)
 	std::cout << "Our address:" << myaddrstr << std::endl;
 	my_addr.reset(new Graph(myaddrstr));
 
+	// Tell the router to create a route to us
+	struct sockaddr_in router_addr;
+	if(picoquic_xia_router_addr(&router_addr)) {
+		std::cout << "Error getting router address" << std::endl;
+		return -1;
+	}
+
+	uint8_t buffer[1024];
+	size_t buffer_offset = 0;
+	// Start with 0xc0da (tells router this is a registration packet
+	buffer[buffer_offset++] = 0xc0;
+	buffer[buffer_offset++] = 0xda;
+	// Now add AID size and the AID as a string itself
+	buffer[buffer_offset++] = (uint8_t)aidstr.size();
+	memcpy(&buffer[buffer_offset], aidstr.data(), aidstr.size());
+	buffer_offset += aidstr.size();
+	// Add our address and port here
+	struct sockaddr_storage myaddr;
+	socklen_t myaddrlen;
+	if(getsockname(sockfd, (struct sockaddr*)&myaddr, &myaddrlen)) {
+		std::cout << "ERROR getting server socket local addr" << std::endl;
+		return -1;
+	}
+	buffer[buffer_offset++] = myaddrlen;
+	memcpy(&buffer[buffer_offset], &myaddr, myaddrlen);
+	buffer_offset += myaddrlen;
+
+	// Send the registration packet to the router
+	int retval = sendto(sockfd, buffer, buffer_offset, 0,
+			(struct sockaddr*)&router_addr, sizeof(router_addr));
+	if(retval != buffer_offset) {
+		std::cout << "ERROR sending registration packet" << std::endl;
+		return -1;
+	}
 
 	return sockfd;
 }
