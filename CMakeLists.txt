@@ -37,6 +37,9 @@ set(PICOQUIC_LIBRARY_FILES
     picoquic/tls_api.c
     picoquic/transport.c
     picoquic/util.c
+    picoquic/xiaapi.cpp
+    picoquic/dagaddr.cpp
+    picoquic/utils.cpp
 )
 
 set(PICOQUIC_TEST_LIBRARY_FILES
@@ -98,6 +101,13 @@ target_link_libraries(picoquicclient picoquic-core
 
 add_executable(picoquicserver picoquicfirst/picoquicserver.c)
 target_link_libraries(picoquicserver picoquic-core
+	${PTLS_LIBRARIES}
+	${OPENSSL_LIBRARIES}
+	${CMAKE_DL_LIBS}
+)
+
+add_executable(picoquicserverxia picoquicfirst/picoquicserverxia.cpp)
+target_link_libraries(picoquicserverxia picoquic-core
 	${PTLS_LIBRARIES}
 	${OPENSSL_LIBRARIES}
 	${CMAKE_DL_LIBS}
