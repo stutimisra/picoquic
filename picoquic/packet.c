@@ -679,11 +679,9 @@ int picoquic_prepare_version_negotiation(
         /* Set length and addresses, and queue. */
         sp->length = byte_index;
         memset(&sp->addr_to, 0, sizeof(sp->addr_to));
-        memcpy(&sp->addr_to, addr_from,
-            (addr_from->sa_family == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6));
+        memcpy(&sp->addr_to, addr_from, picoquic_addrlen(addr_from));
         memset(&sp->addr_local, 0, sizeof(sp->addr_local));
-        memcpy(&sp->addr_local, addr_to,
-            (addr_to->sa_family == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6));
+        memcpy(&sp->addr_local, addr_to, picoquic_addrlen(addr_to));
         sp->if_index_local = if_index_to;
         sp->cnxid_log64 = picoquic_val64_connection_id(ph->dest_cnx_id);
 

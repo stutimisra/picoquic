@@ -276,13 +276,20 @@ int picoquic_compare_addr(const struct sockaddr * expected, const struct sockadd
 #endif
                 ret = 0;
             }
-        } else {
+        } else if(expected->sa_family == AF_INET6) {
             struct sockaddr_in6 * ex = (struct sockaddr_in6 *)expected;
             struct sockaddr_in6 * ac = (struct sockaddr_in6 *)actual;
 
 
             if (ex->sin6_port == ac->sin6_port &&
                 memcmp(&ex->sin6_addr, &ac->sin6_addr, 16) == 0) {
+                ret = 0;
+            }
+        } else if(expected->sa_family == AF_XIA) {
+            sockaddr_x *ex = (sockaddr_x *)expected;
+            sockaddr_x *ac = (sockaddr_x *)actual;
+            // TODO:convert to Graph and do logical comparison of DAGs
+            if(memcmp(&ex->sx_addr, &ac->sx_addr, sizeof(x_addr_t)) == 0) {
                 ret = 0;
             }
         }
@@ -297,11 +304,11 @@ int picoquic_store_addr(struct sockaddr_storage * stored_addr, const struct sock
     int len = 0;
     
     if (addr != NULL && addr->sa_family != 0) {
-        len = (int)((addr->sa_family == AF_INET) ? sizeof(struct sockaddr_in) :
-            sizeof(struct sockaddr_in6));
-        memcpy(stored_addr, addr, len);
+        len = picoquic_addrlen(addr);
     }
-    else {
+    if(len != 0) {
+        memcpy(stored_addr, addr, len);
+    } else {
         memset(stored_addr, 0, sizeof(sockaddr_x));
     }
 
@@ -309,7 +316,7 @@ int picoquic_store_addr(struct sockaddr_storage * stored_addr, const struct sock
 }
 
 /* Return a pointer to the IP address and IP length in a sockaddr */
-void picoquic_get_ip_addr(struct sockaddr * addr, uint8_t ** ip_addr, uint8_t * ip_addr_len)
+void picoquic_get_ip_addr(struct sockaddr * addr, uint8_t ** ip_addr, size_t * ip_addr_len)
 {
     if (addr->sa_family == AF_INET) {
         *ip_addr = (uint8_t *)&((struct sockaddr_in *)addr)->sin_addr;
@@ -318,6 +325,10 @@ void picoquic_get_ip_addr(struct sockaddr * addr, uint8_t ** ip_addr, uint8_t * 
     else if(addr->sa_family == AF_INET6) {
         *ip_addr = (uint8_t *)&((struct sockaddr_in6 *)addr)->sin6_addr;
         *ip_addr_len = 16;
+    }
+    else if(addr->sa_family == AF_XIA) {
+        *ip_addr = (uint8_t *)&((sockaddr_x *)addr)->sx_addr;
+        *ip_addr_len = (size_t) sizeof(x_addr_t);
     }
     else {
         *ip_addr = NULL;
@@ -373,4 +384,17 @@ int picoquic_get_input_path(char * target_file_path, size_t file_path_max, const
     }
 
     return ret;
+}
+
+int picoquic_addrlen(const struct sockaddr * addr)
+{
+    int len = 0;
+    if (addr->sa_family == AF_INET) {
+        len = sizeof(struct sockaddr_in);
+    } else if (addr->sa_family == AF_INET6) {
+        len = sizeof(struct sockaddr_in6);
+    } else if (addr->sa_family == AF_XIA) {
+        len = sizeof(sockaddr_x);
+    }
+    return len;
 }

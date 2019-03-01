@@ -651,7 +651,7 @@ uint8_t* picoquic_decode_new_token_frame(picoquic_cnx_t* cnx, uint8_t* bytes, co
     }
     else if (addr_to != NULL && cnx->client_mode && cnx->sni != NULL){
         uint8_t * ip_addr;
-        uint8_t ip_addr_length;
+        size_t ip_addr_length;
         picoquic_get_ip_addr(addr_to, &ip_addr, &ip_addr_length);
         (void)picoquic_store_token(&cnx->quic->p_first_token, current_time, cnx->sni, (uint16_t)strlen(cnx->sni),
             ip_addr, ip_addr_length, token, (uint16_t)length);

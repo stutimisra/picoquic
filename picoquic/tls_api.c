@@ -1993,7 +1993,7 @@ static int picoquic_get_retry_token_hash(picoquic_quic_t* quic, struct sockaddr 
     }
     else {
         uint8_t * ip_addr;
-        uint8_t ip_addr_length;
+        size_t ip_addr_length;
 
         picoquic_get_ip_addr(addr_peer, &ip_addr, &ip_addr_length);
         if (ip_addr == NULL || ip_addr_length == 0) {
