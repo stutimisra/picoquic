@@ -16,6 +16,7 @@ extern "C" {
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/types.h>
+#include <ifaddrs.h>
 
 // Let's hard code the router's address for now
 #define ROUTER_ADDR "172.16.148.166"
@@ -37,36 +38,85 @@ void xiaapitest()
 //
 // Returns socket descriptor and our local address, on Success
 // Returns -1, on Failure
-int picoquic_xia_open_server_socket(char * aid, GraphPtr& my_addr)
+int picoquic_xia_open_server_socket(char* aid, GraphPtr& my_addr)
 {
 	std::cout << "Opening a server socket with XIA headers" << std::endl;
 	int sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if(sockfd == -1) {
 		return -1;
 	}
+	std::cout << "Underlying IP socket created" << std::endl;
 
-	// Bind to a port
-	struct sockaddr_in my_ip_addr;
-	my_ip_addr.sin_family = AF_INET;
-	my_ip_addr.sin_port = htons(0);
-	my_ip_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	if(bind(sockfd, (struct sockaddr*) &my_ip_addr, sizeof(my_ip_addr))) {
-		std::cout << "Failed binding to a port" << std::endl;
+	// Find the default local address
+	struct ifaddrs *ifap, *ifa;
+	struct sockaddr_in *sa;
+	char *addr;
+
+	if(getifaddrs(&ifap)) {
+		std::cout << "ERROR getting local interface addresses" << std::endl;
 		return -1;
 	}
 
-	// Our address, to be used for sending packets out
+	for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+		if (ifa->ifa_addr->sa_family==AF_INET) {
+			sa = (struct sockaddr_in *) ifa->ifa_addr;
+			if(strncmp(ifa->ifa_name, "lo", 2) == 0) {
+				sa = NULL;
+				continue;
+			}
+			addr = inet_ntoa(sa->sin_addr);
+			printf("Interface: %s\tAddress: %s\n", ifa->ifa_name, addr);
+			break;
+		}
+	}
+	if(ifa == NULL) {
+		std::cout << "ERROR couldn't find a local address" << std::endl;
+		freeifaddrs(ifap);
+		return -1;
+	}
+	// 'sa' now points to a valid local address
+
+	// Bind to a random port
+	printf("Binding to %s:%d\n", inet_ntoa(sa->sin_addr), ntohs(sa->sin_port));
+	if(bind(sockfd, (struct sockaddr*) sa, sizeof(sockaddr_in))) {
+		std::cout << "Failed binding to a port" << std::endl;
+		freeifaddrs(ifap);
+		return -1;
+	}
+	freeifaddrs(ifap);
+
+	// Find out the port that we bound to
+	struct sockaddr_in bound_addr;
+	socklen_t bound_addrlen = sizeof(struct sockaddr_in);
+	if(getsockname(sockfd, (struct sockaddr*)&bound_addr, &bound_addrlen)) {
+		std::cout << "ERROR getting address we bound to" << std::endl;
+		return -1;
+	}
+	printf("Bound to %s:%d\n", inet_ntoa(bound_addr.sin_addr),
+			ntohs(bound_addr.sin_port));
+
+	// Our XIA address, to be used for sending packets out
 	std::string aidstr(aid);
-	std::string myaddrstr = std::string("RE ") + OUR_ADDR +  " " + aidstr;
-	std::cout << "Our address:" << myaddrstr << std::endl;
-	my_addr.reset(new Graph(myaddrstr));
+	std::string xiaaddrstr = std::string("RE ") + OUR_ADDR +  " " + aidstr;
+	std::cout << "Our address:" << xiaaddrstr << std::endl;
+	my_addr.reset(new Graph(xiaaddrstr));
 
 	// Tell the router to create a route to us
 	struct sockaddr_in router_addr;
 	if(picoquic_xia_router_addr(&router_addr)) {
 		std::cout << "Error getting router address" << std::endl;
+		freeifaddrs(ifap);
 		return -1;
 	}
+	printf("Router addr found: %s\n", inet_ntoa(router_addr.sin_addr));
+	char raddr_str[1024];
+	if(inet_ntop(AF_INET, &(router_addr.sin_addr),
+				raddr_str, sizeof(raddr_str)) == NULL) {
+		std::cout << "Error converting router addr to string" << std::endl;
+		freeifaddrs(ifap);
+		return -1;
+	}
+	std::cout << "Found router address " << std::string(raddr_str) << std::endl;
 
 	uint8_t buffer[1024];
 	size_t buffer_offset = 0;
@@ -75,18 +125,16 @@ int picoquic_xia_open_server_socket(char * aid, GraphPtr& my_addr)
 	buffer[buffer_offset++] = 0xda;
 	// Now add AID size and the AID as a string itself
 	buffer[buffer_offset++] = (uint8_t)aidstr.size();
+	std::cout << "AID size: " << aidstr.size() << std::endl;
 	memcpy(&buffer[buffer_offset], aidstr.data(), aidstr.size());
 	buffer_offset += aidstr.size();
 	// Add our address and port here
-	struct sockaddr_storage myaddr;
-	socklen_t myaddrlen;
-	if(getsockname(sockfd, (struct sockaddr*)&myaddr, &myaddrlen)) {
-		std::cout << "ERROR getting server socket local addr" << std::endl;
-		return -1;
-	}
-	buffer[buffer_offset++] = myaddrlen;
-	memcpy(&buffer[buffer_offset], &myaddr, myaddrlen);
-	buffer_offset += myaddrlen;
+	buffer[buffer_offset++] = sizeof(struct sockaddr_in);
+	printf("Our address: %s\n", inet_ntoa(bound_addr.sin_addr));
+	printf("Our port in network byte order %d\n", bound_addr.sin_port);
+	printf("Our port: %d\n", ntohs(bound_addr.sin_port));
+	memcpy(&buffer[buffer_offset], &bound_addr, sizeof(struct sockaddr_in));
+	buffer_offset += sizeof(struct sockaddr_in);
 
 	// Send the registration packet to the router
 	int retval = sendto(sockfd, buffer, buffer_offset, 0,
@@ -96,6 +144,16 @@ int picoquic_xia_open_server_socket(char * aid, GraphPtr& my_addr)
 		return -1;
 	}
 
+	struct sockaddr_storage myaddr;
+	socklen_t myaddrlen = sizeof(struct sockaddr_storage);
+	if(getsockname(sockfd, (struct sockaddr*)&myaddr, &myaddrlen)) {
+		std::cout << "ERROR getting server socket local addr" << std::endl;
+		return -1;
+	}
+	struct sockaddr_in* myaddrptr = (struct sockaddr_in*) &myaddr;
+	printf("Our address: %s\n", inet_ntoa(myaddrptr->sin_addr));
+	printf("Our port in network byte order %d\n", myaddrptr->sin_port);
+	printf("Our port: %d\n", ntohs(myaddrptr->sin_port));
 	return sockfd;
 }
 
@@ -167,6 +225,7 @@ int picoquic_xia_router_addr(struct sockaddr_in* router_addr)
 		std::cout << "Error converting router addr" << std::endl;
 		return -1;
 	}
+	printf("Router Addr: %s\n", inet_ntoa(router_addr->sin_addr));
 	return 0;
 }
 
