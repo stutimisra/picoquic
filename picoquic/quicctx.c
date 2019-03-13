@@ -758,6 +758,9 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
 
             /* Initialize the MTU */
             path_x->send_mtu = (peer_addr == NULL || peer_addr->sa_family == AF_INET) ? PICOQUIC_INITIAL_MTU_IPV4 : PICOQUIC_INITIAL_MTU_IPV6;
+            if(peer_addr->sa_family == AF_XIA) {
+                path_x->send_mtu = 1200; // Allow enough space for XIA header
+            }
 
             /* Record the path */
             cnx->path[cnx->nb_paths] = path_x;
