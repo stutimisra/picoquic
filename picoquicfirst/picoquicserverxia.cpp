@@ -167,9 +167,6 @@ int main()
 	} else {
 		printf("SUCCESS creating xia server socket\n");
 	}
-	std::string addrstr("RE AD:abcd1234abcd1234abcdabcd1234abcd1234abcd HID:abcd1234abcd1234abcdabcd1234abcd1234abcd");
-	Graph g(addrstr);
-	std::cout << "Address: " << g.dag_string() << std::endl;
 	// Create server sockets
 	/*
 	picoquic_server_sockets_t server_sockets;
@@ -234,16 +231,6 @@ int main()
 		int64_t delta_t = picoquic_get_next_wake_delay(server, current_time,
 				delay_max);
 
-		/*
-		bytes_recv = picoquic_select(server_sockets.s_socket,
-				PICOQUIC_NB_SERVER_SOCKETS,
-				&addr_from, &from_length,
-				&addr_to, &to_length, &to_interface,
-				&received_ecn,
-				buffer, sizeof(buffer),
-				delta_t,
-				&current_time);
-				*/
 		bytes_recv = picoquic_xia_select(sockfd, &addr_from,
 				&addr_local, buffer, sizeof(buffer),
 				delta_t,
