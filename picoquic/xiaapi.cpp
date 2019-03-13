@@ -23,7 +23,7 @@ extern "C" {
 #define ROUTER_PORT 8769
 
 // Also, hard coding our address, for now
-#define OUR_ADDR "AD:69a4e068880cd40549405dfda6e794b0c7fdf191 HID:59f1978899b8a8c866d1b7992f66f91e1422efc9"
+#define OUR_ADDR "AD:65898514a891747be5509618a910a26752a972aa HID:d4b1b82c24101488ebabc535c3813a543cc36019"
 
 /*
 void xiaapitest()
@@ -32,6 +32,50 @@ void xiaapitest()
 }
 */
 
+int picoquic_xia_socket()
+{
+	// Get the interface addresses for this system
+	struct ifaddrs* ifap;
+	if(getifaddrs(&ifap)) {
+		std::cout << "ERROR getting local interface addresses" << std::endl;
+		return -1;
+	}
+
+	// Convert 'ifap' into a smart pointer 'addrs'
+	// freeifaddrs() called automatically when 'addrs' goes out of scope
+	std::unique_ptr<struct ifaddrs, decltype(&freeifaddrs)> addrs(
+			ifap, &freeifaddrs);
+
+	struct ifaddrs* ifa;
+	struct sockaddr_in* sa;
+	for(ifa = addrs.get(); ifa; ifa = ifa->ifa_next) {
+		if(ifa->ifa_addr->sa_family == AF_INET) {
+			sa = (struct sockaddr_in*) ifa->ifa_addr;
+			if(strncmp(ifa->ifa_name, "lo", 2) == 0) {
+				sa = NULL;
+				continue;
+			}
+			printf("Iface: %s Address: %s\n", ifa->ifa_name,
+					inet_ntoa(sa->sin_addr));
+			break;
+		}
+	}
+	if(ifa == NULL) {
+		std::cout << "ERROR couldn't find a local address" << std::endl;
+		return -1;
+	}
+	// 'sa' now points to a valid local address
+	// Bind to a random port
+	int sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if(sockfd == -1) {
+		return -1;
+	}
+	if(bind(sockfd, (struct sockaddr*) sa, sizeof(sockaddr_in))) {
+		std::cout << "Failed binding to a port" << std::endl;
+		return -1;
+	}
+	return sockfd;
+}
 
 // Open a server socket
 // Associate it to given AID
@@ -40,50 +84,11 @@ void xiaapitest()
 // Returns -1, on Failure
 int picoquic_xia_open_server_socket(char* aid, GraphPtr& my_addr)
 {
-	std::cout << "Opening a server socket with XIA headers" << std::endl;
-	int sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	int sockfd = picoquic_xia_socket();
 	if(sockfd == -1) {
+		std::cout << "ERROR creating bound socket" << std::endl;
 		return -1;
 	}
-	std::cout << "Underlying IP socket created" << std::endl;
-
-	// Find the default local address
-	struct ifaddrs *ifap, *ifa;
-	struct sockaddr_in *sa;
-	char *addr;
-
-	if(getifaddrs(&ifap)) {
-		std::cout << "ERROR getting local interface addresses" << std::endl;
-		return -1;
-	}
-
-	for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
-		if (ifa->ifa_addr->sa_family==AF_INET) {
-			sa = (struct sockaddr_in *) ifa->ifa_addr;
-			if(strncmp(ifa->ifa_name, "lo", 2) == 0) {
-				sa = NULL;
-				continue;
-			}
-			addr = inet_ntoa(sa->sin_addr);
-			printf("Interface: %s\tAddress: %s\n", ifa->ifa_name, addr);
-			break;
-		}
-	}
-	if(ifa == NULL) {
-		std::cout << "ERROR couldn't find a local address" << std::endl;
-		freeifaddrs(ifap);
-		return -1;
-	}
-	// 'sa' now points to a valid local address
-
-	// Bind to a random port
-	printf("Binding to %s:%d\n", inet_ntoa(sa->sin_addr), ntohs(sa->sin_port));
-	if(bind(sockfd, (struct sockaddr*) sa, sizeof(sockaddr_in))) {
-		std::cout << "Failed binding to a port" << std::endl;
-		freeifaddrs(ifap);
-		return -1;
-	}
-	freeifaddrs(ifap);
 
 	// Find out the port that we bound to
 	struct sockaddr_in bound_addr;
@@ -105,18 +110,8 @@ int picoquic_xia_open_server_socket(char* aid, GraphPtr& my_addr)
 	struct sockaddr_in router_addr;
 	if(picoquic_xia_router_addr(&router_addr)) {
 		std::cout << "Error getting router address" << std::endl;
-		freeifaddrs(ifap);
 		return -1;
 	}
-	printf("Router addr found: %s\n", inet_ntoa(router_addr.sin_addr));
-	char raddr_str[1024];
-	if(inet_ntop(AF_INET, &(router_addr.sin_addr),
-				raddr_str, sizeof(raddr_str)) == NULL) {
-		std::cout << "Error converting router addr to string" << std::endl;
-		freeifaddrs(ifap);
-		return -1;
-	}
-	std::cout << "Found router address " << std::string(raddr_str) << std::endl;
 
 	uint8_t buffer[1024];
 	size_t buffer_offset = 0;
@@ -125,14 +120,12 @@ int picoquic_xia_open_server_socket(char* aid, GraphPtr& my_addr)
 	buffer[buffer_offset++] = 0xda;
 	// Now add AID size and the AID as a string itself
 	buffer[buffer_offset++] = (uint8_t)aidstr.size();
-	std::cout << "AID size: " << aidstr.size() << std::endl;
 	memcpy(&buffer[buffer_offset], aidstr.data(), aidstr.size());
 	buffer_offset += aidstr.size();
 	// Add our address and port here
 	buffer[buffer_offset++] = sizeof(struct sockaddr_in);
-	printf("Our address: %s\n", inet_ntoa(bound_addr.sin_addr));
-	printf("Our port in network byte order %d\n", bound_addr.sin_port);
-	printf("Our port: %d\n", ntohs(bound_addr.sin_port));
+	printf("Our address: %s:%d\n", inet_ntoa(bound_addr.sin_addr),
+			ntohs(bound_addr.sin_port));
 	memcpy(&buffer[buffer_offset], &bound_addr, sizeof(struct sockaddr_in));
 	buffer_offset += sizeof(struct sockaddr_in);
 
@@ -150,10 +143,12 @@ int picoquic_xia_open_server_socket(char* aid, GraphPtr& my_addr)
 		std::cout << "ERROR getting server socket local addr" << std::endl;
 		return -1;
 	}
+	/*
 	struct sockaddr_in* myaddrptr = (struct sockaddr_in*) &myaddr;
 	printf("Our address: %s\n", inet_ntoa(myaddrptr->sin_addr));
 	printf("Our port in network byte order %d\n", myaddrptr->sin_port);
 	printf("Our port: %d\n", ntohs(myaddrptr->sin_port));
+	*/
 	return sockfd;
 }
 
@@ -225,7 +220,8 @@ int picoquic_xia_router_addr(struct sockaddr_in* router_addr)
 		std::cout << "Error converting router addr" << std::endl;
 		return -1;
 	}
-	printf("Router Addr: %s\n", inet_ntoa(router_addr->sin_addr));
+	printf("Router addr: %s:%d\n", inet_ntoa(router_addr->sin_addr),
+			ntohs(router_addr->sin_port));
 	return 0;
 }
 
