@@ -106,6 +106,13 @@ target_link_libraries(picoquicserver picoquic-core
 	${CMAKE_DL_LIBS}
 )
 
+add_executable(picoquicclientxia picoquicfirst/picoquicclientxia.cpp)
+target_link_libraries(picoquicclientxia picoquic-core
+	${PTLS_LIBRARIES}
+	${OPENSSL_LIBRARIES}
+	${CMAKE_DL_LIBS}
+)
+
 add_executable(picoquicserverxia picoquicfirst/picoquicserverxia.cpp)
 target_link_libraries(picoquicserverxia picoquic-core
 	${PTLS_LIBRARIES}
