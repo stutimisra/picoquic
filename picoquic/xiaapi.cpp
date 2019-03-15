@@ -71,7 +71,7 @@ int picoquic_xia_socket()
 		return -1;
 	}
 	if(bind(sockfd, (struct sockaddr*) sa, sizeof(sockaddr_in))) {
-		std::cout << "Failed binding to a port" << std::endl;
+		std::cout << "ERROR binding to a port" << std::endl;
 		return -1;
 	}
 	return sockfd;
@@ -156,9 +156,7 @@ int picoquic_xia_sendmsg(int sockfd, uint8_t* bytes, int length,
 		sockaddr_x* peer_addr, sockaddr_x* local_addr)
 {
 	Graph addr_to(peer_addr);
-	std::cout << "sendmsg: to: " << addr_to.dag_string() << std::endl;
 	Graph addr_from(local_addr);
-	std::cout << "sendmsg: from: " << addr_from.dag_string() << std::endl;
 	// Convert addr to wire format
 	// Create XIA Header
 	struct click_xia xiah;
@@ -166,7 +164,6 @@ int picoquic_xia_sendmsg(int sockfd, uint8_t* bytes, int length,
 	xiah.ver = 1;
 	xiah.nxt = CLICK_XIA_NXT_DATA;
 	xiah.plen = htons(length);
-	std::cout << "sendmsg: plen " << length << std::endl;
 	xiah.hlim = HLIM_DEFAULT;
 	xiah.dnode = addr_to.num_nodes();
 	xiah.snode = addr_from.num_nodes();
@@ -193,13 +190,10 @@ int picoquic_xia_sendmsg(int sockfd, uint8_t* bytes, int length,
 	struct iovec parts[3];
 	parts[0].iov_base = &xiah;
 	parts[0].iov_len = sizeof(xiah);
-	std::cout << "sendmsg: xiah len " << sizeof(xiah) << std::endl;
-	std::cout << "sendmsg: node len " << sizeof(click_xia_xid_node) << std::endl;
 	parts[1].iov_base = addr_nodes.data();
 	parts[1].iov_len = sizeof(click_xia_xid_node) * num_nodes;
 	parts[2].iov_base = bytes;
 	parts[2].iov_len = length;
-	std::cout << "sendmsg: hlen " << parts[0].iov_len + parts[1].iov_len << std::endl;
 
 	// Now send the packet out to the router
 	struct msghdr msg;
@@ -226,8 +220,8 @@ int picoquic_xia_router_addr(struct sockaddr_in* router_addr)
 		std::cout << "Error converting router addr" << std::endl;
 		return -1;
 	}
-	printf("Router addr: %s:%d\n", inet_ntoa(router_addr->sin_addr),
-			ntohs(router_addr->sin_port));
+	//printf("Router addr: %s:%d\n", inet_ntoa(router_addr->sin_addr),
+			//ntohs(router_addr->sin_port));
 	return 0;
 }
 
@@ -277,8 +271,6 @@ int picoquic_xia_recvfrom(int sockfd, sockaddr_x* addr_from,
 	Graph their_addr;
 	our_addr.from_wire_format(xiah.dnode, dst_wire_addr);
 	their_addr.from_wire_format(xiah.snode, src_wire_addr);
-	std::cout << "recvfrom: our addr: " << our_addr.dag_string() << std::endl;
-	std::cout << "recvfrom: peer: " << their_addr.dag_string() << std::endl;
 	our_addr.fill_sockaddr(addr_local);
 	their_addr.fill_sockaddr(addr_from);
 

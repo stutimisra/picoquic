@@ -255,17 +255,17 @@ int main()
 		if(bytes_recv > 0) {
 			// Process the incoming packet via QUIC server
 			printf("Server: got %d bytes from client\n", bytes_recv);
-			char label[] = "Server: client addr:";
-			print_address((struct sockaddr*)&addr_from, label);
+			//char label[] = "Server: client addr:";
+			//print_address((struct sockaddr*)&addr_from, label);
 			(void)picoquic_incoming_packet(server, buffer,
 					(size_t)bytes_recv, (struct sockaddr*)&addr_from,
 					(struct sockaddr*)&addr_local, to_interface,
 					received_ecn,
 					current_time);
-			printf("Server: processed incoming packet through QUIC\n");
-			print_address((struct sockaddr*)&addr_from, label);
-			char label2[] = "Server: server addr:";
-			print_address((struct sockaddr*)&addr_local, label2);
+			//printf("Server: processed incoming packet through QUIC\n");
+			//print_address((struct sockaddr*)&addr_from, label);
+			//char label2[] = "Server: server addr:";
+			//print_address((struct sockaddr*)&addr_local, label2);
 			// If we don't have a list of server connections, get it
 			if(connections==NULL
 					|| connections!=picoquic_get_first_cnx(server)) {
