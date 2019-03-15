@@ -2905,7 +2905,7 @@ int picoquic_prepare_packet(picoquic_cnx_t* cnx,
 
     int ret = 0;
     picoquic_packet_t * packet = NULL;
-    struct sockaddr_storage addr_to_log;
+    sockaddr_x addr_to_log;
     uint64_t next_wake_time = cnx->latest_progress_time + PICOQUIC_MICROSEC_SILENCE_MAX * (2 - cnx->client_mode);
 
     memset(&addr_to_log, 0, sizeof(addr_to_log));
