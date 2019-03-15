@@ -155,7 +155,11 @@ int main()
 
 	// Our AID - TODO: generate one on the fly
 	char aid[] = "AID:69a4e068880cd40549405dfda6e794b0c7fdf195";
-	GraphPtr my_addr;
+	// TODO: Would get this via naming service
+	char server_addrstr[] = "RE AD:65898514a891747be5509618a910a26752a972aa HID:db55fd6d6a47ceacbc16de3299212b2b5eb8b1b9 AID:69a4e068880cd40549405dfda6e794b0c7fdf192";
+	GraphPtr mydag;
+	sockaddr_x my_address;
+	int my_addrlen;
 
 	// QUIC client
 	picoquic_quic_t *client;
@@ -165,12 +169,18 @@ int main()
 	memset(&callback_context, 0, sizeof(struct callback_context_t));
 
 	// Server address
-	struct sockaddr_storage server_address;
+	//struct sockaddr_storage server_address;
+	sockaddr_x server_address;
 	int server_addrlen;
-	int is_name;
+	//int is_name;
+	std::string serverdagstr(server_addrstr);
+	Graph serverdag(serverdagstr);
+	serverdag.fill_sockaddr(&server_address);
+	server_addrlen = sizeof(sockaddr_x);
 
 	// Get the server's address
 	// For now, let's hard code the server's address
+	/*
 	if(picoquic_get_server_address("127.0.0.1", SERVER_PORT,
 				&server_address, &server_addrlen, &is_name)) {
 		printf("ERROR: getting server address\n");
@@ -179,13 +189,17 @@ int main()
 	printf("Got server address of size %d\n", server_addrlen);
 	printf("Server addr type: %s\n",
 			(server_address.ss_family == AF_INET) ? "AF_INET" : "AF_INET6");
+			*/
 
 	// A socket to talk to server on
 	//sockfd = socket(server_address.ss_family, SOCK_DGRAM, IPPROTO_UDP);
-	sockfd = picoquic_xia_open_server_socket(aid, my_addr);
+	sockfd = picoquic_xia_open_server_socket(aid, mydag);
 	if(sockfd == INVALID_SOCKET) {
 		goto client_done;
 	}
+	std::cout << "CLIENTADDR: " << mydag->dag_string() << std::endl;
+	mydag->fill_sockaddr(&my_address);
+	my_addrlen = sizeof(sockaddr_x);
 	printf("Created socket to talk to server\n");
 	state = 1; // socket created
 
@@ -303,16 +317,19 @@ int main()
 	// Send a packet to get the connection establishment started
 	if(picoquic_prepare_packet(connection, current_time,
 				send_buffer, sizeof(send_buffer), &send_length,
-				NULL, NULL,    // Address to
-				NULL, NULL)) { // Address from
+				(struct sockaddr_storage*)&server_address, &server_addrlen,
+				(struct sockaddr_storage*)&my_address, &my_addrlen)) {
 		printf("ERROR: preparing a QUIC packet to send\n");
 		goto client_done;
 	}
 	printf("Prepared packet of size %zu\n", send_length);
+	mydag->fill_sockaddr(&my_address);
 	int bytes_sent;
 	if(send_length > 0) {
-		bytes_sent = sendto(sockfd, send_buffer, (int)send_length, 0,
-				(struct sockaddr*)&server_address, server_addrlen);
+		bytes_sent = picoquic_xia_sendmsg(sockfd, send_buffer,
+				(int) send_length, &server_address, &my_address);
+		//bytes_sent = sendto(sockfd, send_buffer, (int)send_length, 0,
+				//(struct sockaddr*)&server_address, server_addrlen);
 		if(bytes_sent < 0) {
 			printf("ERROR: sending packet to server\n");
 			goto client_done;
@@ -390,12 +407,14 @@ int main()
 			}
 
 			// If the stream has been closed, we close the connection
+			/*
 			if(!callback_context.stream_open) {
 				printf("The stream was not open, close connection\n");
 				picoquic_close(connection, 0);
 				connection = NULL;
 				break;
 			}
+			*/
 
 			// Waited too long. Close connection
 			if(current_time > callback_context.last_interaction_time
@@ -421,9 +440,13 @@ int main()
 		}
 		if(send_length > 0) {
 			printf("Sending packet of size %ld\n", send_length);
+			bytes_sent = picoquic_xia_sendmsg(sockfd, send_buffer,
+					(int) send_length, &server_address, &my_address);
 			//printf("Sending a packet of size %d\n", (int)send_length);
+			/*
 			bytes_sent = sendto(sockfd, send_buffer, (int)send_length, 0,
 					(struct sockaddr*)&server_address, server_addrlen);
+					*/
 			if(bytes_sent <= 0) {
 				printf("ERROR sending packet to server\n");
 			}
