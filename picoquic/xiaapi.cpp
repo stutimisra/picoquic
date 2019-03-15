@@ -23,7 +23,7 @@ extern "C" {
 #define ROUTER_PORT 8769
 
 // Also, hard coding our address, for now
-#define OUR_ADDR "AD:65898514a891747be5509618a910a26752a972aa HID:d4b1b82c24101488ebabc535c3813a543cc36019"
+#define OUR_ADDR "AD:65898514a891747be5509618a910a26752a972aa HID:db55fd6d6a47ceacbc16de3299212b2b5eb8b1b9"
 
 /*
 void xiaapitest()
@@ -156,14 +156,17 @@ int picoquic_xia_sendmsg(int sockfd, uint8_t* bytes, int length,
 		sockaddr_x* peer_addr, sockaddr_x* local_addr)
 {
 	Graph addr_to(peer_addr);
+	std::cout << "sendmsg: to: " << addr_to.dag_string() << std::endl;
 	Graph addr_from(local_addr);
+	std::cout << "sendmsg: from: " << addr_from.dag_string() << std::endl;
 	// Convert addr to wire format
 	// Create XIA Header
 	struct click_xia xiah;
 	memset(&xiah, 0, sizeof(struct click_xia));
 	xiah.ver = 1;
 	xiah.nxt = CLICK_XIA_NXT_DATA;
-	xiah.plen = length;
+	xiah.plen = htons(length);
+	std::cout << "sendmsg: plen " << length << std::endl;
 	xiah.hlim = HLIM_DEFAULT;
 	xiah.dnode = addr_to.num_nodes();
 	xiah.snode = addr_from.num_nodes();
@@ -190,10 +193,13 @@ int picoquic_xia_sendmsg(int sockfd, uint8_t* bytes, int length,
 	struct iovec parts[3];
 	parts[0].iov_base = &xiah;
 	parts[0].iov_len = sizeof(xiah);
+	std::cout << "sendmsg: xiah len " << sizeof(xiah) << std::endl;
+	std::cout << "sendmsg: node len " << sizeof(click_xia_xid_node) << std::endl;
 	parts[1].iov_base = addr_nodes.data();
 	parts[1].iov_len = sizeof(click_xia_xid_node) * num_nodes;
 	parts[2].iov_base = bytes;
 	parts[2].iov_len = length;
+	std::cout << "sendmsg: hlen " << parts[0].iov_len + parts[1].iov_len << std::endl;
 
 	// Now send the packet out to the router
 	struct msghdr msg;
@@ -240,12 +246,13 @@ int picoquic_xia_recvfrom(int sockfd, sockaddr_x* addr_from,
 	struct iovec parts[2];
 	parts[0].iov_base = &xiah;
 	parts[0].iov_len = sizeof(xiah);
-	parts[1].iov_base = &addrspluspayload;
+	parts[1].iov_base = addrspluspayload;
 	parts[1].iov_len = sizeof(addrspluspayload);
 
 	msg.msg_name = &router_addr;
 	msg.msg_namelen = sizeof(router_addr);
 	msg.msg_iov = parts;
+	msg.msg_iovlen = 2;
 	msg.msg_control = NULL;
 	msg.msg_controllen = 0;
 	msg.msg_flags = 0;
@@ -263,20 +270,22 @@ int picoquic_xia_recvfrom(int sockfd, sockaddr_x* addr_from,
 	}
 
 	// Copy over the DAGs to user provided buffers
-	int payload_length = xiah.plen;
-	const node_t* dst_wire_addr = (const node_t*)&addrspluspayload;
+	int payload_length = ntohs(xiah.plen);
+	const node_t* dst_wire_addr = (const node_t*)addrspluspayload;
 	const node_t* src_wire_addr = dst_wire_addr + xiah.dnode;
 	Graph our_addr;
 	Graph their_addr;
 	our_addr.from_wire_format(xiah.dnode, dst_wire_addr);
 	their_addr.from_wire_format(xiah.snode, src_wire_addr);
+	std::cout << "recvfrom: our addr: " << our_addr.dag_string() << std::endl;
+	std::cout << "recvfrom: peer: " << their_addr.dag_string() << std::endl;
 	our_addr.fill_sockaddr(addr_local);
 	their_addr.fill_sockaddr(addr_from);
 
 	// Copy out the payload to user buffer
 	int payload_offset = sizeof(node_t) * (xiah.dnode + xiah.snode);
 	memcpy(buffer, &(addrspluspayload[payload_offset]), payload_length);
-	return 0;
+	return payload_length;
 }
 
 int picoquic_xia_select(int sockfd, sockaddr_x* addr_from,
