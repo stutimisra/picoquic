@@ -50,8 +50,8 @@ typedef struct {
 #pragma pack(1)     // without this, the size of the struct would not be 1 byte
 typedef struct
 {
-    unsigned visited : 1;
     unsigned idx : 7;
+    unsigned visited : 1;
 } click_xia_xid_edge;
 #pragma pack(pop)
 
@@ -74,7 +74,6 @@ struct click_xia {
     //uint8_t dints;
     //uint8_t sints;
     int8_t last;			/* index of last visited node (note: integral) */
-    click_xia_xid_node *node;         /* XID node list */
 };
 
 typedef click_xia_xid xid_t;
