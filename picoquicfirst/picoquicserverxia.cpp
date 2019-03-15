@@ -18,7 +18,17 @@ extern "C" {
 void print_address(struct sockaddr* address, char* label)
 {
 	char hostname[256];
+	if(address->sa_family == AF_XIA) {
+		sockaddr_x* addr = (sockaddr_x*) address;
+		Graph dag(addr);
+		std::cout << std::string(label) << " "
+			<< dag.dag_string() << std::endl;
+	} else {
+		std::cout << "Invalid address - expected XIA" << std::endl;
+	}
+	return;
 
+	/*
 	const char *x = inet_ntop(address->sa_family,
 			(address->sa_family == AF_INET) ?
 			(void*)&(((struct sockaddr_in*)address)->sin_addr) :
@@ -29,6 +39,7 @@ void print_address(struct sockaddr* address, char* label)
 		((struct sockaddr_in6*)address)->sin6_port;
 	port = ntohs(port);
 	printf("%s %s, port %d\n", label, x, port);
+	*/
 }
 
 typedef struct {
@@ -252,6 +263,9 @@ int main()
 					received_ecn,
 					current_time);
 			printf("Server: processed incoming packet through QUIC\n");
+			print_address((struct sockaddr*)&addr_from, label);
+			char label2[] = "Server: server addr:";
+			print_address((struct sockaddr*)&addr_local, label2);
 			// If we don't have a list of server connections, get it
 			if(connections==NULL
 					|| connections!=picoquic_get_first_cnx(server)) {
@@ -306,10 +320,8 @@ int main()
 		while((next_connection = picoquic_get_earliest_cnx_to_wake(server,
 					loop_time)) != NULL) {
 			//struct sockaddr_storage peer_addr;
-			sockaddr_x peer_addr;
-			sockaddr_x local_addr;
-			int peer_addr_len = 0;
-			int local_addr_len = 0;
+			int peer_addr_len = sizeof(sockaddr_x);
+			int local_addr_len = sizeof(sockaddr_x);
 			//struct sockaddr_storage local_addr;
 			// Ask QUIC to prepare a packet to send out on this connection
 			//
@@ -318,8 +330,8 @@ int main()
 			// Fix would require changes to picoquic which we want to avoid
 			int rc = picoquic_prepare_packet(next_connection, current_time,
 					send_buffer, sizeof(send_buffer), &send_length,
-					(struct sockaddr_storage*) &peer_addr, &peer_addr_len,
-					(struct sockaddr_storage*) &local_addr, &local_addr_len);
+					(struct sockaddr_storage*) &addr_from, &peer_addr_len,
+					(struct sockaddr_storage*) &addr_local, &local_addr_len);
 			if(rc == PICOQUIC_ERROR_DISCONNECTED) {
 				// Connections list is empty, if this was the last connection
 				if(next_connection == connections) {
@@ -335,7 +347,7 @@ int main()
 					printf("Server: sending %ld byte packet\n", send_length);
 					(void)picoquic_xia_sendmsg(sockfd,
 							send_buffer, send_length,
-							&peer_addr, &local_addr);
+							&addr_from, &addr_local);
 
 					/*
 					(void)picoquic_send_through_server_sockets(
