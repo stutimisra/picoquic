@@ -27,19 +27,6 @@ void print_address(struct sockaddr* address, char* label)
 		std::cout << "Invalid address - expected XIA" << std::endl;
 	}
 	return;
-
-	/*
-	const char *x = inet_ntop(address->sa_family,
-			(address->sa_family == AF_INET) ?
-			(void*)&(((struct sockaddr_in*)address)->sin_addr) :
-			(void*)&(((struct sockaddr_in6*)address)->sin6_addr),
-			hostname, sizeof(hostname));
-	int port = (address->sa_family == AF_INET) ?
-		((struct sockaddr_in*)address)->sin_port :
-		((struct sockaddr_in6*)address)->sin6_port;
-	port = ntohs(port);
-	printf("%s %s, port %d\n", label, x, port);
-	*/
 }
 
 typedef struct {
@@ -151,12 +138,6 @@ int main()
 	uint64_t current_time;
 	picoquic_quic_t* server = NULL;
 	int64_t delay_max = 10000000;      // max wait 10 sec.
-	/*
-	struct sockaddr_storage addr_from; // client's address
-	struct sockaddr_storage addr_to;   // our address
-	socklen_t from_length = sizeof(struct sockaddr_storage);
-	socklen_t to_length = sizeof(struct sockaddr_storage);
-	*/
 	sockaddr_x addr_from;
 	sockaddr_x addr_local;
 	unsigned long to_interface = 0;    // our interface
@@ -178,14 +159,6 @@ int main()
 	} else {
 		printf("SUCCESS creating xia server socket\n");
 	}
-	// Create server sockets
-	/*
-	picoquic_server_sockets_t server_sockets;
-	if(picoquic_open_server_sockets(&server_sockets, SERVER_PORT)) {
-		printf("ERROR creating server sockets\n");
-		goto server_done;
-	}
-	*/
 	state = 1; // server socket now exists
 
 	// Get the server certificate
@@ -291,38 +264,18 @@ int main()
 				std::cout << "ERROR: Non XIA stateless packet" << std::endl;
 				break;
 			}
-			// Get address lengths
-			/*
-			socklen_t to_len = sizeof(struct sockaddr_in);
-			socklen_t local_len = sizeof(struct sockaddr_in);
-			if(sp->addr_to.ss_family != AF_INET) {
-				to_len = sizeof(struct sockaddr_in6);
-			}
-			if(sp->addr_local.ss_family != AF_INET) {
-				local_len = sizeof(struct sockaddr_in6);
-			}
-			*/
 			// send out any outstanding stateless packets
 			printf("Server: sending stateless packet out on network\n");
 			picoquic_xia_sendmsg(sockfd, sp->bytes, sp->length,
 					&sp->addr_to, &sp->addr_local);
-			/*
-			(void)picoquic_send_through_server_sockets(&server_sockets,
-					(struct sockaddr*)&sp->addr_to, to_len,
-					(struct sockaddr*)&sp->addr_local, local_len,
-					sp->if_index_local,
-					(const char*)sp->bytes, (int)sp->length);
-					*/
 			picoquic_delete_stateless_packet(sp);
 		}
 
 		// Send outgoing packets for all connections
 		while((next_connection = picoquic_get_earliest_cnx_to_wake(server,
 					loop_time)) != NULL) {
-			//struct sockaddr_storage peer_addr;
 			int peer_addr_len = sizeof(sockaddr_x);
 			int local_addr_len = sizeof(sockaddr_x);
-			//struct sockaddr_storage local_addr;
 			// Ask QUIC to prepare a packet to send out on this connection
 			//
 			// TODO: HACK!!! peer and local addr pointers sent as
@@ -348,15 +301,6 @@ int main()
 					(void)picoquic_xia_sendmsg(sockfd,
 							send_buffer, send_length,
 							&addr_from, &addr_local);
-
-					/*
-					(void)picoquic_send_through_server_sockets(
-							&server_sockets,
-							(struct sockaddr*)&peer_addr, peer_addr_len,
-							(struct sockaddr*)&local_addr, local_addr_len,
-							picoquic_get_local_if_index(next_connection),
-							(const char *)send_buffer, (int)send_length);
-							*/
 				}
 			} else {
 				printf("Server: Exiting outgoing pkts loop. rc=%d\n", rc);
