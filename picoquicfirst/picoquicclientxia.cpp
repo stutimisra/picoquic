@@ -131,12 +131,6 @@ int main()
 
 	// Event loop parameters
 	int64_t delay_max = 10000000;
-	/*
-	struct sockaddr_storage packet_from;
-	struct sockaddr_storage packet_to;
-	socklen_t from_length;
-	socklen_t to_length;
-	*/
 	sockaddr_x packet_from;
 	sockaddr_x packet_to;
 	unsigned long if_index_to = 0;
@@ -169,27 +163,12 @@ int main()
 	memset(&callback_context, 0, sizeof(struct callback_context_t));
 
 	// Server address
-	//struct sockaddr_storage server_address;
 	sockaddr_x server_address;
 	int server_addrlen;
-	//int is_name;
 	std::string serverdagstr(server_addrstr);
 	Graph serverdag(serverdagstr);
 	serverdag.fill_sockaddr(&server_address);
 	server_addrlen = sizeof(sockaddr_x);
-
-	// Get the server's address
-	// For now, let's hard code the server's address
-	/*
-	if(picoquic_get_server_address("127.0.0.1", SERVER_PORT,
-				&server_address, &server_addrlen, &is_name)) {
-		printf("ERROR: getting server address\n");
-		goto client_done;
-	}
-	printf("Got server address of size %d\n", server_addrlen);
-	printf("Server addr type: %s\n",
-			(server_address.ss_family == AF_INET) ? "AF_INET" : "AF_INET6");
-			*/
 
 	// A socket to talk to server on
 	//sockfd = socket(server_address.ss_family, SOCK_DGRAM, IPPROTO_UDP);
@@ -202,39 +181,6 @@ int main()
 	my_addrlen = sizeof(sockaddr_x);
 	printf("Created socket to talk to server\n");
 	state = 1; // socket created
-
-	// Tell Linux to return PKTINFO - address information
-	/*
-	if(server_address.ss_family == AF_INET6) {
-		int val = 1;
-		if(setsockopt(sockfd, IPPROTO_IPV6, IPV6_V6ONLY, &val, sizeof(val))){
-			printf("ERROR: setting IPV6_ONLY option\n");
-			goto client_done;
-		}
-		val = 1;
-		if(setsockopt(sockfd, IPPROTO_IPV6, IPV6_RECVPKTINFO,(char*)&val,
-					sizeof(int))) {
-			printf("ERROR: setting IPV6_RECVPKTINFO option\n");
-			goto client_done;
-		}
-	} else { // IPv4
-		int val = 1;
-#ifdef IP_PKTINFO
-		if(setsockopt(sockfd, IPPROTO_IP, IP_PKTINFO,
-					(char*)&val, sizeof(int))) {
-			printf("ERROR: setting IP_PKTINFO option\n");
-			goto client_done;
-		}
-#else
-		// IP_PKTINFO is not defined on BSD
-		if(setsockopt(sockfd, IPPROTO_IP, IP_RECVDSTADDR,
-					(char*)&val, sizeof(int))) {
-			printf("ERROR: setting IP_RECVDSTADDR option\n");
-			goto client_done;
-		}
-#endif
-	}
-	*/
 
 	// Create QUIC context for client
 	current_time = picoquic_current_time();
@@ -328,8 +274,6 @@ int main()
 	if(send_length > 0) {
 		bytes_sent = picoquic_xia_sendmsg(sockfd, send_buffer,
 				(int) send_length, &server_address, &my_address);
-		//bytes_sent = sendto(sockfd, send_buffer, (int)send_length, 0,
-				//(struct sockaddr*)&server_address, server_addrlen);
 		if(bytes_sent < 0) {
 			printf("ERROR: sending packet to server\n");
 			goto client_done;
@@ -343,19 +287,6 @@ int main()
 		delay_max = 10000000;
 
 		// Wait until data or timeout
-		/*
-		from_length = sizeof(struct sockaddr_storage);
-		to_length = sizeof(struct sockaddr_storage);
-		bytes_recv = picoquic_select(&sockfd, // list of sockets
-				1, // number of sockets
-				&packet_from, &from_length,
-				&packet_to, &to_length,
-				&if_index_to,           // to interface
-				&received_ecn,
-				buffer, sizeof(buffer), // packet contents, if received
-				delta_t,                // timeout, initially 0: block
-				&current_time);         // updated current time
-				*/
 		bytes_recv = picoquic_xia_select(sockfd, &packet_from,
 				&packet_to, buffer, sizeof(buffer),
 				delta_t,
@@ -443,10 +374,6 @@ int main()
 			bytes_sent = picoquic_xia_sendmsg(sockfd, send_buffer,
 					(int) send_length, &server_address, &my_address);
 			//printf("Sending a packet of size %d\n", (int)send_length);
-			/*
-			bytes_sent = sendto(sockfd, send_buffer, (int)send_length, 0,
-					(struct sockaddr*)&server_address, server_addrlen);
-					*/
 			if(bytes_sent <= 0) {
 				printf("ERROR sending packet to server\n");
 			}
@@ -479,6 +406,7 @@ client_done:
 			picoquic_free(client);
 			// fallthrough
 		case 1:
+			// TODO: Need to unregister this socket and AID at router
 			close(sockfd);
 	};
 
