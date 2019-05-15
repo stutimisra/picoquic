@@ -13,6 +13,12 @@ if(DISABLE_DEBUG_PRINTF)
     set(CMAKE_C_FLAGS "-DDISABLE_DEBUG_PRINTF ${CMAKE_C_FLAGS}")
 endif()
 
+set(PICOQUIC_XIA_API_FILES
+	picoquic/xiaapi.cpp
+	picoquic/dagaddr.cpp
+	picoquic/utils.cpp
+)
+
 set(PICOQUIC_LIBRARY_FILES
     picoquic/cubic.c
 	picoquic/democlient.c
@@ -37,9 +43,6 @@ set(PICOQUIC_LIBRARY_FILES
     picoquic/tls_api.c
     picoquic/transport.c
     picoquic/util.c
-    picoquic/xiaapi.cpp
-    picoquic/dagaddr.cpp
-    picoquic/utils.cpp
 )
 
 set(PICOQUIC_TEST_LIBRARY_FILES
@@ -77,8 +80,21 @@ message(STATUS "OpenSSL_VERSION: ${OPENSSL_VERSION}")
 message(STATUS "OpenSSL_INCLUDE_DIR: ${OPENSSL_INCLUDE_DIR}")
 message(STATUS "OpenSSL_LIBRARIES: ${OPENSSL_LIBRARIES}")
 
-include_directories(picoquic picoquictest
+find_package(Protobuf REQUIRED)
+file(GLOB ProtoFiles "${CMAKE_CURRENT_SOURCE_DIR}/picoquic/*.proto")
+PROTOBUF_GENERATE_CPP(ProtoSources ProtoHeaders ${ProtoFiles})
+#add_library(confreqmsgs STATIC ${ProtoSources} ${ProtoHeaders})
+#target_link_libraries(confreqmsgs ${PROTOBUF_LIBRARY})
+set(ProtobufIncludePath ${CMAKE_CURRENT_BINARY_DIR}
+	CACHE INTERNAL "Path to generated ConfigRequest messages protobuf files.")
+
+include_directories(picoquic picoquictest ${ProtobufIncludePath}
     ${PTLS_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR})
+
+# Build XIA API and protobuf defs to configure forwarding table on router
+add_library(picoquicxia ${PICOQUIC_XIA_API_FILES}
+	${ProtoSources} ${ProtoHeaders})
+target_link_libraries(picoquicxia ${PROTOBUF_LIBRARY})
 
 add_library(picoquic-core
     ${PICOQUIC_LIBRARY_FILES}
@@ -107,14 +123,14 @@ target_link_libraries(picoquicserver picoquic-core
 )
 
 add_executable(picoquicclientxia picoquicfirst/picoquicclientxia.cpp)
-target_link_libraries(picoquicclientxia picoquic-core
+target_link_libraries(picoquicclientxia picoquic-core picoquicxia
 	${PTLS_LIBRARIES}
 	${OPENSSL_LIBRARIES}
 	${CMAKE_DL_LIBS}
 )
 
 add_executable(picoquicserverxia picoquicfirst/picoquicserverxia.cpp)
-target_link_libraries(picoquicserverxia picoquic-core
+target_link_libraries(picoquicserverxia picoquic-core picoquicxia
 	${PTLS_LIBRARIES}
 	${OPENSSL_LIBRARIES}
 	${CMAKE_DL_LIBS}
