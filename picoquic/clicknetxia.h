@@ -106,6 +106,9 @@ typedef struct {
 #define CLICK_XIA_NXT_XSTREAM	0x03
 #define CLICK_XIA_NXT_FID       0x04
 
+#define CLICK_XIA_NXT_SECRET    0x05
+#define CLICK_XIA_NXT_QUIC      0x06
+
 // XIA extension header
 #pragma pack(push)
 #pragma pack(1)

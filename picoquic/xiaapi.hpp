@@ -24,6 +24,7 @@ int picoquic_xia_open_server_socket(char* aid, GraphPtr& my_addr);
 
 // Get the IP address of an XIA Router we can send packets to
 int picoquic_xia_router_addr(struct sockaddr_in* router_addr);
+int picoquic_xia_router_control_addr(struct sockaddr_in* router_addr);
 
 // Wait on a socket until data is available or timeout
 // Extract src and dest DAGs from the received XIA packet

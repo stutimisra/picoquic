@@ -156,6 +156,7 @@ int main()
 	sockfd = picoquic_xia_open_server_socket(aid, my_addr);
 	if(sockfd == -1) {
 		printf("ERROR creating xia server socket\n");
+		return -1;
 	} else {
 		printf("SUCCESS creating xia server socket\n");
 	}
