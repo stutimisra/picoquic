@@ -275,6 +275,8 @@ int main()
 		// Send outgoing packets for all connections
 		while((next_connection = picoquic_get_earliest_cnx_to_wake(server,
 					loop_time)) != NULL) {
+			sockaddr_x peer_addr;
+			sockaddr_x local_addr;
 			int peer_addr_len = sizeof(sockaddr_x);
 			int local_addr_len = sizeof(sockaddr_x);
 			// Ask QUIC to prepare a packet to send out on this connection
@@ -284,8 +286,8 @@ int main()
 			// Fix would require changes to picoquic which we want to avoid
 			int rc = picoquic_prepare_packet(next_connection, current_time,
 					send_buffer, sizeof(send_buffer), &send_length,
-					(struct sockaddr_storage*) &addr_from, &peer_addr_len,
-					(struct sockaddr_storage*) &addr_local, &local_addr_len);
+					(struct sockaddr_storage*) &peer_addr, &peer_addr_len,
+					(struct sockaddr_storage*) &local_addr, &local_addr_len);
 			if(rc == PICOQUIC_ERROR_DISCONNECTED) {
 				// Connections list is empty, if this was the last connection
 				if(next_connection == connections) {
@@ -301,7 +303,7 @@ int main()
 					printf("Server: sending %ld byte packet\n", send_length);
 					(void)picoquic_xia_sendmsg(sockfd,
 							send_buffer, send_length,
-							&addr_from, &addr_local);
+							&peer_addr, &local_addr);
 				}
 			} else {
 				printf("Server: Exiting outgoing pkts loop. rc=%d\n", rc);
