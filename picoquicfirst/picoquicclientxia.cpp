@@ -21,6 +21,7 @@ static const char *ticket_store_filename = "demo_ticket_store.bin";
 
 // If there were multiple streams, we would track progress for them here
 struct callback_context_t {
+	int connected;
 	int stream_open;
 	int received_so_far;
 	uint64_t last_interaction_time;
@@ -110,6 +111,7 @@ void start_stream(picoquic_cnx_t* connection,
 	uint64_t stream_id = 0;
 	char data[] = "Hello world!";
 	context->stream_open = 1;
+	context->connected = 1;
 
 	// Queue up a "Hello world!" to be sent to the server
 	printf("Sending %ld bytes of data on stream\n", sizeof(data));
@@ -338,14 +340,12 @@ int main()
 			}
 
 			// If the stream has been closed, we close the connection
-			/*
-			if(!callback_context.stream_open) {
+			if(callback_context.connected && !callback_context.stream_open) {
 				printf("The stream was not open, close connection\n");
 				picoquic_close(connection, 0);
 				connection = NULL;
 				break;
 			}
-			*/
 
 			// Waited too long. Close connection
 			if(current_time > callback_context.last_interaction_time
