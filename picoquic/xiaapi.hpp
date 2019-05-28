@@ -50,4 +50,9 @@ int picoquic_xia_sendmsg(int sockfd, uint8_t* bytes, int length,
 int picoquic_xia_recvfrom(int sockfd, sockaddr_x* addr_from,
 		sockaddr_x* addr_local, uint8_t*buffer, int buflen);
 
+// Ask router to set a forwarding table entry for CID to xcachesockfd
+// Returns DAG for CID that can be used to request the CID
+// Currently, there is no check to ensure CID is on disk.
+int picoquic_xia_serve_cid(int xcachesockfd, char* cid, GraphPtr& cid_addr);
+
 #endif //PICOQUIC_XIAAPI_H

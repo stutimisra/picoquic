@@ -82,6 +82,97 @@ int picoquic_xia_socket()
 	return sockfd;
 }
 
+static int _send_server_cmd(std::string cmd)
+{
+	// Get router control IP address (XIAConfigHelper address)
+	struct sockaddr_in router_addr;
+	if(picoquic_xia_router_control_addr(&router_addr)) {
+		std::cout << "Error getting router address" << std::endl;
+		return -1;
+	}
+
+	// Add the command to a protobuf request to XIAConfigHelper on router
+	GOOGLE_PROTOBUF_VERIFY_VERSION;
+	configrequest::Request request;
+	request.set_type(configrequest::Request::IP_ROUTES);
+	auto routes = request.mutable_routes();
+	routes->add_route_cmds(cmd);
+
+	// Serialize the protobuf to go on wire
+	std::string req;
+	request.SerializeToString(&req);
+	std::cout << "Sending buf of size " << req.size() << std::endl;
+	uint32_t req_len_nbo = htonl(req.size());
+
+	// A buffer to hold the Int32 size and the protobuf contents
+	uint8_t buffer[1024];
+	size_t buffer_offset = 0;
+	memcpy(&buffer[buffer_offset], &req_len_nbo, sizeof(req_len_nbo));
+	buffer_offset += sizeof(req_len_nbo);
+	memcpy(&buffer[buffer_offset], req.c_str(), req.size());
+	buffer_offset += req.size();
+
+	// Create socket and connect to XIAConfigHelper
+	int rsockfd = socket(AF_INET, SOCK_STREAM, 0);
+	if (rsockfd == -1) {
+		std::cout << "ERROR: creating socket for router config" << std::endl;
+		return -1;
+	}
+	if(connect(rsockfd, (struct sockaddr*)&router_addr,sizeof(router_addr))) {
+		std::cout << "ERROR: talking to router for route setup" << std::endl;
+		return -1;
+	}
+	std::cout << "Connected to router" << std::endl;
+
+	// Receive the helper greeting
+	char dummy[32];
+	memset(dummy, 0, sizeof(dummy));
+	int retval = recv(rsockfd, dummy, sizeof(dummy), 0);
+	if (retval < 0) {
+		std::cout << "ERROR: receiving helper greeting" << std::endl;
+		return -1;
+	}
+	printf("Router said: %s size: %d\n", dummy, retval);
+
+	std::cout << "Sending route cmd to router " << buffer_offset << std::endl;
+	retval = send(rsockfd, buffer, buffer_offset, 0);
+	if (retval != buffer_offset) {
+		std::cout << "ERROR: sending routing info to router" << std::endl;
+	}
+	close(rsockfd);
+	return 0;
+}
+
+int picoquic_xia_serve_cid(int xcachesockfd, char* cid, GraphPtr& cid_addr)
+{
+	// Find out Xcache IP address and port
+	struct sockaddr_in xcache_addr;
+	socklen_t xcache_addrlen = sizeof(struct sockaddr_in);
+	if(getsockname(xcachesockfd,
+				(struct sockaddr*)&xcache_addr, &xcache_addrlen)) {
+		std::cout << "ERROR getting addr for xcache" << std::endl;
+		return -1;
+	}
+
+	// Build XIA address for given CID
+	std::string cidstr(cid);
+	std::string xiaaddrstr = std::string("RE ") + OUR_ADDR + " " + cidstr;
+	std::cout << "Our address:" << xiaaddrstr << std::endl;
+	cid_addr.reset(new Graph(xiaaddrstr));
+
+	// Ask router to send packets for CID to Xcache IP address and port
+	std::ostringstream cmd;
+	cmd << "./bin/xroute -a CID," << cidstr << ",0,";
+	cmd << inet_ntoa(xcache_addr.sin_addr); // dot separated IP addr
+	cmd << ":"<< ntohs(xcache_addr.sin_port); // :port
+	std::cout << "Route cmd to router: " << cmd.str() << std::endl;
+	if(_send_server_cmd(cmd.str())) {
+		std::cout << "ERROR configuring route to " << cidstr << std::endl;
+		return -1;
+	}
+	return 0;
+}
+
 // Open a server socket
 // Associate it to given AID
 //
@@ -118,103 +209,16 @@ int picoquic_xia_open_server_socket(char* aid, GraphPtr& my_addr)
 		return -1;
 	}
 
-	/*
-	uint8_t buffer[1024];
-	size_t buffer_offset = 0;
-	// Start with 0xc0da (tells router this is a registration packet
-	buffer[buffer_offset++] = 0xc0;
-	buffer[buffer_offset++] = 0xda;
-	// Now add AID size and the AID as a string itself
-	buffer[buffer_offset++] = (uint8_t)aidstr.size();
-	memcpy(&buffer[buffer_offset], aidstr.data(), aidstr.size());
-	buffer_offset += aidstr.size();
-	// Add our address and port here
-	buffer[buffer_offset++] = sizeof(struct sockaddr_in);
-	printf("Our address: %s:%d\n", inet_ntoa(bound_addr.sin_addr),
-			ntohs(bound_addr.sin_port));
-	memcpy(&buffer[buffer_offset], &bound_addr, sizeof(struct sockaddr_in));
-	buffer_offset += sizeof(struct sockaddr_in);
-	*/
-
-	// Build the command to set forwarding table entry on router
+	// Set route for AID to be sent to our bound address
 	std::ostringstream cmd;
 	cmd << "./bin/xroute -a AID," << aidstr << ",0,";
 	cmd << inet_ntoa(bound_addr.sin_addr) <<":"<< ntohs(bound_addr.sin_port);
 	std::cout << "Route cmd to router: " << cmd.str() << std::endl;
 
-	// Add the command to a protobuf request to XIAConfigHelper on router
-	GOOGLE_PROTOBUF_VERIFY_VERSION;
-	configrequest::Request request;
-	request.set_type(configrequest::Request::IP_ROUTES);
-	auto routes = request.mutable_routes();
-	routes->add_route_cmds(cmd.str());
-
-	// Serialize the protobuf to go on wire
-	std::string req;
-	request.SerializeToString(&req);
-	std::cout << "Sending buf of size " << req.size() << std::endl;
-	uint32_t req_len_nbo = htonl(req.size());
-
-	// A buffer to hold the Int32 size and the protobuf contents
-	uint8_t buffer[1024];
-	size_t buffer_offset = 0;
-	memcpy(&buffer[buffer_offset], &req_len_nbo, sizeof(req_len_nbo));
-	buffer_offset += sizeof(req_len_nbo);
-	memcpy(&buffer[buffer_offset], req.c_str(), req.size());
-	buffer_offset += req.size();
-
-	// Create socket and connect to XIAConfigHelper
-	int rsockfd = socket(AF_INET, SOCK_STREAM, 0);
-	if (rsockfd == -1) {
-		std::cout << "ERROR: creating socket for router config" << std::endl;
+	if(_send_server_cmd(cmd.str())) {
+		std::cout << "ERROR configuring route to " << aidstr << std::endl;
 		return -1;
 	}
-	std::cout << "Socket ready to connect to router" << std::endl;
-	if(connect(rsockfd, (struct sockaddr*)&router_addr,sizeof(router_addr))) {
-		std::cout << "ERROR: talking to router for route setup" << std::endl;
-		return -1;
-	}
-	std::cout << "Connected to router" << std::endl;
-
-	// Receive the helper greeting
-	char dummy[32];
-	memset(dummy, 0, sizeof(dummy));
-	int retval = recv(rsockfd, dummy, sizeof(dummy), 0);
-	if (retval < 0) {
-		std::cout << "ERROR: receiving helper greeting" << std::endl;
-		return -1;
-	}
-	printf("Router said: %s size: %d\n", dummy, retval);
-
-	std::cout << "Sending route cmd to router " << buffer_offset << std::endl;
-	retval = send(rsockfd, buffer, buffer_offset, 0);
-	if (retval != buffer_offset) {
-		std::cout << "ERROR: sending routing info to router" << std::endl;
-	}
-	close(rsockfd);
-
-	// Send the registration packet to the router
-	/*
-	int retval = sendto(sockfd, buffer, buffer_offset, 0,
-			(struct sockaddr*)&router_addr, sizeof(router_addr));
-	if(retval != buffer_offset) {
-		std::cout << "ERROR sending registration packet" << std::endl;
-		return -1;
-	}
-	*/
-
-	/*
-	struct sockaddr_storage myaddr;
-	socklen_t myaddrlen = sizeof(struct sockaddr_storage);
-	if(getsockname(sockfd, (struct sockaddr*)&myaddr, &myaddrlen)) {
-		std::cout << "ERROR getting server socket local addr" << std::endl;
-		return -1;
-	}
-	struct sockaddr_in* myaddrptr = (struct sockaddr_in*) &myaddr;
-	printf("Our address: %s\n", inet_ntoa(myaddrptr->sin_addr));
-	printf("Our port in network byte order %d\n", myaddrptr->sin_port);
-	printf("Our port: %d\n", ntohs(myaddrptr->sin_port));
-	*/
 	return sockfd;
 }
 
