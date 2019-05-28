@@ -136,6 +136,13 @@ target_link_libraries(picoquicserverxia picoquic-core picoquicxia
 	${CMAKE_DL_LIBS}
 )
 
+add_executable(xcache picoquicfirst/xcache.cpp)
+target_link_libraries(xcache picoquic-core picoquicxia
+	${PTLS_LIBRARIES}
+	${OPENSSL_LIBRARIES}
+	${CMAKE_DL_LIBS}
+)
+
 add_executable(picoquic_ct picoquic_t/picoquic_t.c
  ${PICOQUIC_TEST_LIBRARY_FILES} )
 target_link_libraries(picoquic_ct picoquic-core
