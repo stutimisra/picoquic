@@ -16,6 +16,7 @@
 //
 
 using GraphPtr = std::unique_ptr<Graph>;
+using NodePtr = std::unique_ptr<Node>;
 
 //extern "C" int picoquic_xia_open_server_socket(char* aid);
 
