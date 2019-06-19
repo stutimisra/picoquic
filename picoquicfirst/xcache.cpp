@@ -32,6 +32,7 @@ void print_address(struct sockaddr* address, char* label)
 typedef struct {
 	int stream_open;     // Assuming just one stream for now
 	int received_so_far; // Number of bytes received in that one stream
+	NodePtr xid;
 } callback_context_t;
 
 static int server_callback(picoquic_cnx_t* connection,
@@ -45,9 +46,13 @@ static int server_callback(picoquic_cnx_t* connection,
 	switch(event) {
 		case picoquic_callback_ready:
 			printf("ServerCallback: Ready\n");
+			printf("ServerCallback: Will send: %s\n",
+					context->xid->to_string().c_str());
 			break;
 		case picoquic_callback_almost_ready:
 			printf("ServerCallback: AlmostReady\n");
+			printf("ServerCallback: Will send chunk: %s\n",
+					context->xid->to_string().c_str());
 			break;
 		// Handle the connection related events
 		case picoquic_callback_close:
@@ -58,7 +63,7 @@ static int server_callback(picoquic_cnx_t* connection,
 			printf("ServerCallback: StatelessReset\n");
 			if(context != NULL) {
 				// Free the context memory and set it NULL for callback
-				free(context);
+				delete context;
 				picoquic_set_callback(connection, server_callback, NULL);
 				printf("ServerCallback: need to free context\n");
 			}
@@ -95,6 +100,8 @@ static int server_callback(picoquic_cnx_t* connection,
 			}
 			// If there's to context, create one
 			if(!context) {
+				printf("ServerCallback: ERROR callback without context\n");
+				/*
 				printf("ServerCallback: creating a new context for stream\n");
 				callback_context_t *new_context = (callback_context_t*)malloc(
 						sizeof(callback_context_t));
@@ -109,6 +116,8 @@ static int server_callback(picoquic_cnx_t* connection,
 				picoquic_set_callback(connection, server_callback,
 						new_context);
 				context = new_context;
+				*/
+			} else {
 				if(length > 0) {
 					char data[length+1];
 					memcpy(data, bytes, length);
@@ -143,7 +152,7 @@ int main()
 	unsigned long to_interface = 0;    // our interface
 	uint8_t buffer[1536];              // buffer to receive packets
 	int bytes_recv;                    // size of packet received
-	picoquic_cnx_t* connections = NULL;
+	picoquic_cnx_t* newest_cnx = NULL;
 	picoquic_cnx_t* next_connection = NULL;
 	uint8_t send_buffer[1536];
 	size_t send_length = 0;
@@ -164,7 +173,7 @@ int main()
 	}
 	state = 1; // server socket now exists
 
-	// Ask router to send requests for our dummy CID
+	// Ask router to send requests for our dummy CID to us
 	if(picoquic_xia_serve_cid(sockfd, cid, dummy_cid_addr)) {
 		printf("ERROR setting up routes for our dummy CID\n");
 		return -1;
@@ -237,6 +246,10 @@ int main()
 		if(bytes_recv > 0) {
 			// Process the incoming packet via QUIC server
 			printf("Server: got %d bytes from client\n", bytes_recv);
+			Graph sender_addr(&addr_from);
+			Graph our_addr(&addr_local);
+			printf("Server: sender: %s\n", sender_addr.dag_string().c_str());
+			printf("Server: us: %s\n", our_addr.dag_string().c_str());
 			//char label[] = "Server: client addr:";
 			//print_address((struct sockaddr*)&addr_from, label);
 			(void)picoquic_incoming_packet(server, buffer,
@@ -249,17 +262,20 @@ int main()
 			//char label2[] = "Server: server addr:";
 			//print_address((struct sockaddr*)&addr_local, label2);
 			// If we don't have a list of server connections, get it
-			if(connections==NULL
-					|| connections!=picoquic_get_first_cnx(server)) {
+			if(newest_cnx == NULL
+					|| newest_cnx != picoquic_get_first_cnx(server)) {
 				printf("Server: New connection\n");
-				connections = picoquic_get_first_cnx(server);
-				if(connections == NULL) {
+				newest_cnx = picoquic_get_first_cnx(server);
+				if(newest_cnx == NULL) {
 					printf("ERROR: No connection found!\n");
 					goto server_done;
 				}
-				printf("Server: Connection established\n");
+				// Let's create a context with intent XID
+				auto ctx = new callback_context_t();
+				ctx->xid.reset(new Node(our_addr.intent_CID_str()));
+				picoquic_set_callback(newest_cnx, server_callback, ctx);
 				printf("Server: Connection state = %d\n",
-						picoquic_get_cnx_state(connections));
+						picoquic_get_cnx_state(newest_cnx));
 
 			}
 		}
@@ -296,8 +312,8 @@ int main()
 					(struct sockaddr_storage*) &addr_local, &local_addr_len);
 			if(rc == PICOQUIC_ERROR_DISCONNECTED) {
 				// Connections list is empty, if this was the last connection
-				if(next_connection == connections) {
-					connections = NULL;
+				if(next_connection == newest_cnx) {
+					newest_cnx = NULL;
 				}
 				printf("Server: Disconnected!\n");
 				picoquic_delete_cnx(next_connection);
