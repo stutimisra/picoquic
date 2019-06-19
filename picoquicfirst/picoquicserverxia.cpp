@@ -11,7 +11,6 @@ extern "C" {
 #include "xiaapi.hpp"
 #include "dagaddr.hpp"
 
-#define SERVER_PORT 4443
 #define SERVER_CERT_FILE "certs/cert.pem"
 #define SERVER_KEY_FILE "certs/key.pem"
 
