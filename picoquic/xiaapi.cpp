@@ -1,6 +1,9 @@
 // XIA Headers
 #include "xiaapi.hpp"
 
+// XIA Helper definitions
+#include "localconfig.hpp" // Read config file local.conf
+
 // QUIC Headers
 extern "C" {
 #include "util.h"    // DBG_PRINTF
@@ -22,20 +25,14 @@ extern "C" {
 // The protobuf defs to configure forwarding table on router
 #include "configrequest.pb.h"
 
+#define CONFFILE "local.conf"
+
 // Let's hard code the router's address for now
-#define ROUTER_ADDR "172.16.148.166"
-#define ROUTER_PORT 8770
-#define ROUTER_CONTROL_PORT 9854    // XIAConfigHelper port
-
-// Also, hard coding our address, for now
-#define OUR_ADDR "AD:8a992e7af0b1631583e5f27c8d3af318856eaa85 HID:38f7fdb64988eae17197764552627a00076c3b34"
-
-/*
-void xiaapitest()
-{
-	std::cout << "Hello XIA Test" << std::endl;
-}
-*/
+#define OUR_ADDR "OUR_ADDR"
+#define ROUTER_ADDR "ROUTER_ADDR"
+#define ROUTER_PORT "ROUTER_PORT"
+#define ROUTER_CONTROL_PORT "ROUTER_CONTROL_PORT"
+#define ROUTER_IFACE "ROUTER_IFACE"
 
 int picoquic_xia_socket()
 {
@@ -132,9 +129,14 @@ static int _send_server_cmd(std::string cmd)
 		std::cout << "ERROR: receiving helper greeting" << std::endl;
 		return -1;
 	}
-	printf("Router said: %s size: %d\n", dummy, retval);
+	// The first 4 bytes contain string size
+	int strsize;
+	memcpy(&strsize, dummy, sizeof(int));
+	strsize = ntohl(strsize);
+	std::cout << "Router returned string of size: " << strsize << std::endl;
+	printf("Router said: %s size: %d\n", &dummy[4], retval);
 
-	std::cout << "Sending route cmd to router " << buffer_offset << std::endl;
+	std::cout << "Sending route cmd of size: " << buffer_offset << std::endl;
 	retval = send(rsockfd, buffer, buffer_offset, 0);
 	if (retval != buffer_offset) {
 		std::cout << "ERROR: sending routing info to router" << std::endl;
@@ -156,13 +158,18 @@ int picoquic_xia_serve_cid(int xcachesockfd, char* cid, GraphPtr& cid_addr)
 
 	// Build XIA address for given CID
 	std::string cidstr(cid);
-	std::string xiaaddrstr = std::string("RE ") + OUR_ADDR + " " + cidstr;
+	auto conf = LocalConfig::get_instance(CONFFILE);
+	auto our_addr = conf.get(OUR_ADDR);
+	std::string xiaaddrstr = our_addr + " " + cidstr;
 	std::cout << "Our address:" << xiaaddrstr << std::endl;
 	cid_addr.reset(new Graph(xiaaddrstr));
 
+	// Get the router's interface that we are connected to
+	auto router_iface = conf.get(ROUTER_IFACE);
+
 	// Ask router to send packets for CID to Xcache IP address and port
 	std::ostringstream cmd;
-	cmd << "./bin/xroute -a CID," << cidstr << ",0,";
+	cmd << "./bin/xroute -a CID," << cidstr << "," << router_iface << ",";
 	cmd << inet_ntoa(xcache_addr.sin_addr); // dot separated IP addr
 	cmd << ":"<< ntohs(xcache_addr.sin_port); // :port
 	std::cout << "Route cmd to router: " << cmd.str() << std::endl;
@@ -197,8 +204,10 @@ int picoquic_xia_open_server_socket(char* aid, GraphPtr& my_addr)
 			ntohs(bound_addr.sin_port));
 
 	// Our XIA address, to be used for sending packets out
+	auto conf = LocalConfig::get_instance(CONFFILE);
+	auto our_addr = conf.get(OUR_ADDR);
 	std::string aidstr(aid);
-	std::string xiaaddrstr = std::string("RE ") + OUR_ADDR +  " " + aidstr;
+	std::string xiaaddrstr = our_addr +  " " + aidstr;
 	std::cout << "Our address:" << xiaaddrstr << std::endl;
 	my_addr.reset(new Graph(xiaaddrstr));
 
@@ -209,9 +218,12 @@ int picoquic_xia_open_server_socket(char* aid, GraphPtr& my_addr)
 		return -1;
 	}
 
+	// Get the router's interface that we are connected to
+	auto router_iface = conf.get(ROUTER_IFACE);
+
 	// Set route for AID to be sent to our bound address
 	std::ostringstream cmd;
-	cmd << "./bin/xroute -a AID," << aidstr << ",0,";
+	cmd << "./bin/xroute -a AID," << aidstr << "," << router_iface << ",";
 	cmd << inet_ntoa(bound_addr.sin_addr) <<":"<< ntohs(bound_addr.sin_port);
 	std::cout << "Route cmd to router: " << cmd.str() << std::endl;
 
@@ -281,12 +293,15 @@ int picoquic_xia_sendmsg(int sockfd, uint8_t* bytes, int length,
 
 int picoquic_xia_router_addr(struct sockaddr_in* router_addr)
 {
+	auto conf = LocalConfig::get_instance(CONFFILE);
+	auto raddr = conf.get(ROUTER_ADDR);
+	auto rport = std::stoi(conf.get(ROUTER_PORT));
 	// TODO: fill in the router address from a config file
 	// TODO: future calls should just return address without reading.
 	memset(router_addr, 0, sizeof(struct sockaddr_in));
-	router_addr->sin_port = htons(ROUTER_PORT);
+	router_addr->sin_port = htons(rport);
 	router_addr->sin_family = AF_INET;
-	if(inet_aton(ROUTER_ADDR, &(router_addr->sin_addr)) == 0) {
+	if(inet_aton(raddr.c_str(), &(router_addr->sin_addr)) == 0) {
 		std::cout << "Error converting router addr" << std::endl;
 		return -1;
 	}
@@ -298,11 +313,14 @@ int picoquic_xia_router_addr(struct sockaddr_in* router_addr)
 int picoquic_xia_router_control_addr(struct sockaddr_in* router_addr)
 {
 	// TODO: fill in the router address from a config file
+	auto conf = LocalConfig::get_instance(CONFFILE);
+	auto raddr = conf.get(ROUTER_ADDR);
+	auto rcport = std::stoi(conf.get(ROUTER_CONTROL_PORT));
 	// TODO: future calls should just return address without reading.
 	memset(router_addr, 0, sizeof(struct sockaddr_in));
-	router_addr->sin_port = htons(ROUTER_CONTROL_PORT);
+	router_addr->sin_port = htons(rcport);
 	router_addr->sin_family = AF_INET;
-	if(inet_aton(ROUTER_ADDR, &(router_addr->sin_addr)) == 0) {
+	if(inet_aton(raddr.c_str(), &(router_addr->sin_addr)) == 0) {
 		std::cout << "Error converting router addr" << std::endl;
 		return -1;
 	}
