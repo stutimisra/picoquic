@@ -1,3 +1,5 @@
+#include "localconfig.hpp"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,9 +13,12 @@ extern "C" {
 #include "xiaapi.hpp"
 #include "dagaddr.hpp"
 
-#define SERVER_PORT 4443
 #define SERVER_CERT_FILE "certs/cert.pem"
 #define SERVER_KEY_FILE "certs/key.pem"
+
+#define CONFFILE "local.conf"
+#define XCACHE_AID "XCACHE_AID"
+#define TEST_CID "TEST_CID"
 
 void print_address(struct sockaddr* address, char* label)
 {
@@ -157,14 +162,16 @@ int main()
 	uint8_t send_buffer[1536];
 	size_t send_length = 0;
 	unsigned char received_ecn;
-	char aid[] = "AID:69a4e068880cd40549405dfda6e794b0c7fdf197";
-	char cid[] = "CID:99999999999cd40549405dfda6e794b0c9999999";
 	GraphPtr my_addr;
 	GraphPtr dummy_cid_addr;
 	int sockfd = -1;
+
+	auto conf = LocalConfig::get_instance(CONFFILE);
+	auto xcache_aid = conf.get(XCACHE_AID);
+	auto test_cid = conf.get(TEST_CID);
 	
 	// We give a fictitious AID for now, and get a dag in my_addr
-	sockfd = picoquic_xia_open_server_socket(aid, my_addr);
+	sockfd = picoquic_xia_open_server_socket(xcache_aid.c_str(), my_addr);
 	if(sockfd == -1) {
 		printf("ERROR creating xia server socket\n");
 		return -1;
@@ -174,7 +181,7 @@ int main()
 	state = 1; // server socket now exists
 
 	// Ask router to send requests for our dummy CID to us
-	if(picoquic_xia_serve_cid(sockfd, cid, dummy_cid_addr)) {
+	if(picoquic_xia_serve_cid(sockfd, test_cid.c_str(), dummy_cid_addr)) {
 		printf("ERROR setting up routes for our dummy CID\n");
 		return -1;
 	}

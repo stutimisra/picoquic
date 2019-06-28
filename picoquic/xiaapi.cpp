@@ -145,7 +145,8 @@ static int _send_server_cmd(std::string cmd)
 	return 0;
 }
 
-int picoquic_xia_serve_cid(int xcachesockfd, char* cid, GraphPtr& cid_addr)
+int picoquic_xia_serve_cid(int xcachesockfd, const char* cid,
+		GraphPtr& cid_addr)
 {
 	// Find out Xcache IP address and port
 	struct sockaddr_in xcache_addr;
