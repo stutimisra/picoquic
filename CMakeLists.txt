@@ -13,6 +13,10 @@ if(DISABLE_DEBUG_PRINTF)
     set(CMAKE_C_FLAGS "-DDISABLE_DEBUG_PRINTF ${CMAKE_C_FLAGS}")
 endif()
 
+set(LOCAL_CONFIG_FILES
+	picoquic/localconfig.cpp
+)
+
 set(PICOQUIC_XIA_API_FILES
 	picoquic/xiaapi.cpp
 	picoquic/dagaddr.cpp
@@ -96,6 +100,8 @@ add_library(picoquicxia ${PICOQUIC_XIA_API_FILES}
 	${ProtoSources} ${ProtoHeaders})
 target_link_libraries(picoquicxia ${PROTOBUF_LIBRARY})
 
+add_library(localconfig ${LOCAL_CONFIG_FILES})
+
 add_library(picoquic-core
     ${PICOQUIC_LIBRARY_FILES}
 )
@@ -124,6 +130,15 @@ target_link_libraries(picoquicserver picoquic-core
 
 add_executable(picoquicclientxia picoquicfirst/picoquicclientxia.cpp)
 target_link_libraries(picoquicclientxia picoquic-core picoquicxia
+	localconfig
+	${PTLS_LIBRARIES}
+	${OPENSSL_LIBRARIES}
+	${CMAKE_DL_LIBS}
+)
+
+add_executable(xcacheclient picoquicfirst/xcacheclient.cpp)
+target_link_libraries(xcacheclient picoquic-core picoquicxia
+	localconfig
 	${PTLS_LIBRARIES}
 	${OPENSSL_LIBRARIES}
 	${CMAKE_DL_LIBS}
@@ -131,6 +146,7 @@ target_link_libraries(picoquicclientxia picoquic-core picoquicxia
 
 add_executable(picoquicserverxia picoquicfirst/picoquicserverxia.cpp)
 target_link_libraries(picoquicserverxia picoquic-core picoquicxia
+	localconfig
 	${PTLS_LIBRARIES}
 	${OPENSSL_LIBRARIES}
 	${CMAKE_DL_LIBS}
@@ -138,6 +154,7 @@ target_link_libraries(picoquicserverxia picoquic-core picoquicxia
 
 add_executable(xcache picoquicfirst/xcache.cpp)
 target_link_libraries(xcache picoquic-core picoquicxia
+	localconfig
 	${PTLS_LIBRARIES}
 	${OPENSSL_LIBRARIES}
 	${CMAKE_DL_LIBS}
