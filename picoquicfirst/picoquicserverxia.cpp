@@ -1,3 +1,5 @@
+#include "localconfig.hpp"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,6 +15,9 @@ extern "C" {
 
 #define SERVER_CERT_FILE "certs/cert.pem"
 #define SERVER_KEY_FILE "certs/key.pem"
+
+#define CONFFILE "local.conf"
+#define SERVER_AID "SERVER_AID"
 
 void print_address(struct sockaddr* address, char* label)
 {
@@ -147,12 +152,14 @@ int main()
 	uint8_t send_buffer[1536];
 	size_t send_length = 0;
 	unsigned char received_ecn;
-	char aid[] = "AID:69a4e068880cd40549405dfda6e794b0c7fdf192";
 	GraphPtr my_addr;
 	int sockfd = -1;
+
+	auto conf = LocalConfig::get_instance(CONFFILE);
+	auto server_aid = conf.get(SERVER_AID);
 	
 	// We give a fictitious AID for now, and get a dag in my_addr
-	sockfd = picoquic_xia_open_server_socket(aid, my_addr);
+	sockfd = picoquic_xia_open_server_socket(server_aid.c_str(), my_addr);
 	if(sockfd == -1) {
 		printf("ERROR creating xia server socket\n");
 		return -1;

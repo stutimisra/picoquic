@@ -1,3 +1,4 @@
+#include "localconfig.hpp"
 // XIA support
 #include "xiaapi.hpp"
 #include "dagaddr.hpp"
@@ -16,8 +17,11 @@ extern "C" {
 #include "util.h"
 };
 
-#define SERVER_PORT 4443
-static const char *ticket_store_filename = "demo_ticket_store.bin";
+#define CONFFILE "local.conf"
+#define THEIR_ADDR "THEIR_ADDR" // The THEIR_ADDR entry in config file
+#define CLIENT_AID "CLIENT_AID" // The CLIENT_AID entry in config file
+#define SERVER_AID "SERVER_AID" // The SERVER_AID entry in config file
+#define TICKET_STORE "TICKET_STORE"
 
 // If there were multiple streams, we would track progress for them here
 struct callback_context_t {
@@ -149,10 +153,11 @@ int main()
 	uint8_t send_buffer[1536];
 	size_t send_length = 0;
 
-	// Our AID - TODO: generate one on the fly
-	char aid[] = "AID:69a4e068880cd40549405dfda6e794b0c7fdf195";
-	// TODO: Would get this via naming service
-	char server_addrstr[] = "RE AD:65898514a891747be5509618a910a26752a972aa HID:db55fd6d6a47ceacbc16de3299212b2b5eb8b1b9 AID:69a4e068880cd40549405dfda6e794b0c7fdf192";
+	auto conf = LocalConfig::get_instance(CONFFILE);
+	auto server_addr = conf.get(THEIR_ADDR);
+	auto server_aid = conf.get(SERVER_AID);
+	auto client_aid = conf.get(CLIENT_AID);
+	const auto ticket_store_filename = conf.get(TICKET_STORE);
 	GraphPtr mydag;
 	sockaddr_x my_address;
 	int my_addrlen;
@@ -167,14 +172,14 @@ int main()
 	// Server address
 	sockaddr_x server_address;
 	int server_addrlen;
-	std::string serverdagstr(server_addrstr);
+	std::string serverdagstr = server_addr + " " + server_aid;
 	Graph serverdag(serverdagstr);
 	serverdag.fill_sockaddr(&server_address);
 	server_addrlen = sizeof(sockaddr_x);
 
 	// A socket to talk to server on
 	//sockfd = socket(server_address.ss_family, SOCK_DGRAM, IPPROTO_UDP);
-	sockfd = picoquic_xia_open_server_socket(aid, mydag);
+	sockfd = picoquic_xia_open_server_socket(client_aid.c_str(), mydag);
 	if(sockfd == INVALID_SOCKET) {
 		goto client_done;
 	}
@@ -200,7 +205,7 @@ int main()
 			NULL,          // reset_seed
 			current_time,  // current time
 			NULL,          // p_simulated_time
-			ticket_store_filename,          // ticket_file_name
+			ticket_store_filename.c_str(),          // ticket_file_name
 			NULL,          // ticket_encryption_key
 			0              // ticket encryption key length
 			);
@@ -387,7 +392,7 @@ int main()
 	}
 	// Save tickets from server, so we can join quickly next time
 	if(picoquic_save_tickets(client->p_first_ticket, current_time,
-				ticket_store_filename) != 0) {
+				ticket_store_filename.c_str()) != 0) {
 		printf("ERROR saving session tickets\n");
 	}
 	// Everything went well, so return success

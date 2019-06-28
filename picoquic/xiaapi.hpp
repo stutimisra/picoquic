@@ -21,7 +21,7 @@ using NodePtr = std::unique_ptr<Node>;
 //extern "C" int picoquic_xia_open_server_socket(char* aid);
 
 //Returns a socket descriptor and an XIA address, with 'aid' as intent
-int picoquic_xia_open_server_socket(char* aid, GraphPtr& my_addr);
+int picoquic_xia_open_server_socket(const char* aid, GraphPtr& my_addr);
 
 // Get the IP address of an XIA Router we can send packets to
 int picoquic_xia_router_addr(struct sockaddr_in* router_addr);

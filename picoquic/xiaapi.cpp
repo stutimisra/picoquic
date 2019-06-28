@@ -185,7 +185,7 @@ int picoquic_xia_serve_cid(int xcachesockfd, char* cid, GraphPtr& cid_addr)
 //
 // Returns socket descriptor and our local address, on Success
 // Returns -1, on Failure
-int picoquic_xia_open_server_socket(char* aid, GraphPtr& my_addr)
+int picoquic_xia_open_server_socket(const char* aid, GraphPtr& my_addr)
 {
 	int sockfd = picoquic_xia_socket();
 	if(sockfd == -1) {
