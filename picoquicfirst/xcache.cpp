@@ -37,8 +37,53 @@ void print_address(struct sockaddr* address, char* label)
 typedef struct {
 	int stream_open;     // Assuming just one stream for now
 	int received_so_far; // Number of bytes received in that one stream
+	uint8_t* data;
+	size_t datalen;
+	size_t sent_offset;
 	NodePtr xid;
 } callback_context_t;
+
+int buildDataToSend(callback_context_t* ctx, size_t datalen)
+{
+	ctx->data = (uint8_t*) malloc(datalen);
+	if (ctx->data == NULL) {
+		return -1;
+	}
+	memset(ctx->data, 0xf5, datalen);
+	return 0;
+}
+
+void cleanupData(uint8_t* data)
+{
+	if (data) {
+		free (data);
+	}
+}
+
+static int sendData(picoquic_cnx_t* connection,
+		uint64_t stream_id, callback_context_t* ctx)
+{
+	if (ctx->data == NULL) {
+		if ( buildDataToSend(ctx, 8192) ) {
+			printf("ERROR creating data buffer to send\n");
+			return -1;
+		}
+		ctx->datalen = 8192;
+		ctx->sent_offset = 0;
+	}
+
+	if(ctx->sent_offset == 0) {
+		int ret = picoquic_add_to_stream(connection, stream_id,
+				ctx->data, ctx->datalen, 1);
+		//if(picoquic_add_to_stream(connection, stream_id,
+				//ctx->data, ctx->datalen, 1)) {
+		if(ret != 0) {
+			printf("ERROR: queuing data to send. Returned %d\n", ret);
+			return -1;
+		}
+		ctx->sent_offset = ctx->datalen;
+	}
+}
 
 static int server_callback(picoquic_cnx_t* connection,
 		uint64_t stream_id, uint8_t* bytes, size_t length,
@@ -51,13 +96,15 @@ static int server_callback(picoquic_cnx_t* connection,
 	switch(event) {
 		case picoquic_callback_ready:
 			printf("ServerCallback: Ready\n");
-			printf("ServerCallback: Will send: %s\n",
+			printf("ServerCallback: Sending chunk: %s\n",
 					context->xid->to_string().c_str());
+			//sendData(connection, stream_id, context);
 			break;
 		case picoquic_callback_almost_ready:
 			printf("ServerCallback: AlmostReady\n");
 			printf("ServerCallback: Will send chunk: %s\n",
 					context->xid->to_string().c_str());
+			//sendData(connection, stream_id, context);
 			break;
 		// Handle the connection related events
 		case picoquic_callback_close:
@@ -106,32 +153,18 @@ static int server_callback(picoquic_cnx_t* connection,
 			// If there's to context, create one
 			if(!context) {
 				printf("ServerCallback: ERROR callback without context\n");
-				/*
-				printf("ServerCallback: creating a new context for stream\n");
-				callback_context_t *new_context = (callback_context_t*)malloc(
-						sizeof(callback_context_t));
-				if(new_context) {
-					memset(new_context, 0, sizeof(callback_context_t));
-				} else {
-					printf("ERROR creating context in callback\n");
-					picoquic_close(connection, PICOQUIC_ERROR_MEMORY);
-					return 0;
-				}
-				// Assign the context to this callback for future triggers
-				picoquic_set_callback(connection, server_callback,
-						new_context);
-				context = new_context;
-				*/
 			} else {
 				if(length > 0) {
+					//printf("ERROR: data from client but none expected\n");
 					char data[length+1];
 					memcpy(data, bytes, length);
 					data[length] = 0;
 					printf("ServerCallback: Client sent: %s\n", data);
 					context->received_so_far += length;
 					// Send it back to client and FIN the stream
-					(void)picoquic_add_to_stream(connection, stream_id,
-							(uint8_t*)data, length, 1);
+					//(void)picoquic_add_to_stream(connection, stream_id,
+							//(uint8_t*)data, length, 1);
+					sendData(connection, stream_id, context);
 				}
 			}
 			if(event != picoquic_callback_stream_data) {
@@ -169,6 +202,14 @@ int main()
 	auto conf = LocalConfig::get_instance(CONFFILE);
 	auto xcache_aid = conf.get(XCACHE_AID);
 	auto test_cid = conf.get(TEST_CID);
+	if (xcache_aid.size() == 0) {
+		printf("ERROR: XCACHE_AID entry missing in %s\n", CONFFILE);
+		return -1;
+	}
+	if (test_cid.size() == 0) {
+		printf("ERROR: TEST_CID entry missing in %s\n", CONFFILE);
+		return -1;
+	}
 	
 	// We give a fictitious AID for now, and get a dag in my_addr
 	sockfd = picoquic_xia_open_server_socket(xcache_aid.c_str(), my_addr);
