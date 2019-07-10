@@ -41,7 +41,7 @@ int client_callback(picoquic_cnx_t* cnx,
 		uint64_t stream_id, uint8_t*bytes, size_t length,
 		picoquic_call_back_event_t event, void *callback_context)
 {
-	printf("Client callback\n");
+	printf("Client callback: stream: %lu datalen: %zu\n", stream_id, length);
 
 	struct callback_context_t *context =
 		(struct callback_context_t*)callback_context;
@@ -77,22 +77,23 @@ int client_callback(picoquic_cnx_t* cnx,
 			context->stream_open = 0;
 			return 0;
 		case picoquic_callback_stream_data:
-			printf("Callback: no event\n");
+			printf("Callback: stream data\n");
 			if(length > 0) {
-				char data[256];
-				memcpy(data, (char*)bytes, length);
-				data[length] = 0;
-				printf("Server sent: %s\n", data);
+				std::vector<uint8_t> data(bytes, bytes+length);
+				printf("======= Server sent: %zu bytes\n", length);
 				context->received_so_far += length;
+				if(context->received_so_far >= 8192) {
+					printf("Got %d bytes so far. Resetting stream\n",
+							context->received_so_far);
+					picoquic_reset_stream(cnx, stream_id, 0);
+				}
 			}
 			break;
 		case picoquic_callback_stream_fin:
 			printf("Callback: stream finished\n");
 			if(length > 0) {
-				char data[256];
-				memcpy(data, (char*)bytes, length);
-				data[length] = 0;
-				printf("Server sent: %s\n", data);
+				std::vector<uint8_t> data(bytes, bytes+length);
+				printf("++++++ Server sent: %zu bytes on finish\n", length);
 				context->received_so_far += length;
 			}
 			context->stream_open = 0;
@@ -179,6 +180,7 @@ int main()
 	int server_addrlen;
 	std::string serverdagstr = server_addr + " " + test_cid;
 	Graph serverdag(serverdagstr);
+	std::cout << "Fetching: " << serverdag.dag_string() << std::endl;
 	serverdag.fill_sockaddr(&server_address);
 	server_addrlen = sizeof(sockaddr_x);
 
