@@ -288,8 +288,11 @@ int picoquic_compare_addr(const struct sockaddr * expected, const struct sockadd
         } else if(expected->sa_family == AF_XIA) {
             sockaddr_x *ex = (sockaddr_x *)expected;
             sockaddr_x *ac = (sockaddr_x *)actual;
-            // TODO:convert to Graph and do logical comparison of DAGs
-            if(memcmp(&ex->sx_addr, &ac->sx_addr, sizeof(x_addr_t)) == 0) {
+            // Just compare intents for both addresses
+			// The rest of the address may be modified in path
+            xid_t ex_intent = ex->sx_addr.s_addr[ex->sx_addr.s_count - 1].xid;
+            xid_t ac_intent = ac->sx_addr.s_addr[ac->sx_addr.s_count - 1].xid;
+            if(memcmp(&ex_intent, &ac_intent, sizeof(xid_t)) == 0) {
                 ret = 0;
             }
         }
