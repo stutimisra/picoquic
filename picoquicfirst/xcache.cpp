@@ -153,6 +153,7 @@ static int server_callback(picoquic_cnx_t* connection,
 			// If there's to context, create one
 			if(!context) {
 				printf("ServerCallback: ERROR callback without context\n");
+				break;
 			} else {
 				if(length > 0) {
 					//printf("ERROR: data from client but none expected\n");
