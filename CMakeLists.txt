@@ -1,7 +1,22 @@
-cmake_minimum_required(VERSION 2.8.11)
+cmake_minimum_required(VERSION 3.0.2)
 cmake_policy(SET CMP0003 NEW)
 
+include(ExternalProject)
 project(picoquic)
+
+# XIA codebase
+ExternalProject_Add(xia
+    GIT_REPOSITORY git@github.com:XIA-Project/xia-core.git
+    GIT_TAG xia-v2-overlay
+    CONFIGURE_COMMAND ./configure
+    BUILD_COMMAND make DEBUG=1
+    BUILD_IN_SOURCE 1
+    INSTALL_COMMAND ""
+    )
+
+
+# PicoTLS codebase - as a git submodule
+add_subdirectory(picotls)
 
 set(CMAKE_C_STANDARD 11)
 
@@ -19,8 +34,6 @@ set(LOCAL_CONFIG_FILES
 
 set(PICOQUIC_XIA_API_FILES
 	picoquic/xiaapi.cpp
-	picoquic/dagaddr.cpp
-	picoquic/utils.cpp
 )
 
 set(PICOQUIC_LIBRARY_FILES
@@ -73,10 +86,7 @@ set(PICOQUIC_TEST_LIBRARY_FILES
     picoquictest/transport_param_test.c
 )
 
-set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-find_package(PTLS REQUIRED)
-message(STATUS "picotls/include: ${PTLS_INCLUDE_DIRS}" )
-message(STATUS "picotls libraries: ${PTLS_LIBRARIES}" )
+set(PTLS_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/picotls/include)
 
 find_package(OpenSSL )
 message(STATUS "root: ${OPENSSL_ROOT_DIR}")
@@ -98,14 +108,22 @@ include_directories(picoquic picoquictest ${ProtobufIncludePath}
 # Build XIA API and protobuf defs to configure forwarding table on router
 add_library(picoquicxia ${PICOQUIC_XIA_API_FILES}
 	${ProtoSources} ${ProtoHeaders})
-target_link_libraries(picoquicxia ${PROTOBUF_LIBRARY})
+add_dependencies(picoquicxia xia)
+
+set(XIADIR ${CMAKE_SOURCE_DIR}/build/xia-prefix/src/xia)
+set(DAG_LIBRARY ${XIADIR}/api/lib/libdagaddr.so)
+target_link_libraries(picoquicxia ${PROTOBUF_LIBRARY} ${DAG_LIBRARY})
+include_directories(picoquicxia ${XIADIR}/api/include)
 
 add_library(localconfig ${LOCAL_CONFIG_FILES})
 
 add_library(picoquic-core
     ${PICOQUIC_LIBRARY_FILES}
 )
+include_directories(picoquic-core ${XIADIR}/api/include)
 
+set(PTLS_HINTS ${CMAKE_BINARY_PATH}/picotls picotls)
+set(PTLS_LIBRARIES picotls-core picotls-minicrypto picotls-openssl)
 add_executable(picoquicdemo picoquicfirst/picoquicdemo.c
                             picoquicfirst/getopt.c )
 target_link_libraries(picoquicdemo picoquic-core
@@ -135,6 +153,7 @@ target_link_libraries(picoquicclientxia picoquic-core picoquicxia
 	${OPENSSL_LIBRARIES}
 	${CMAKE_DL_LIBS}
 )
+include_directories(picoquicclientxia ${XIADIR}/api/include)
 
 add_executable(xcacheclient picoquicfirst/xcacheclient.cpp)
 target_link_libraries(xcacheclient picoquic-core picoquicxia
@@ -151,6 +170,7 @@ target_link_libraries(picoquicserverxia picoquic-core picoquicxia
 	${OPENSSL_LIBRARIES}
 	${CMAKE_DL_LIBS}
 )
+include_directories(picoquicserverxia ${XIADIR}/api/include)
 
 add_executable(xcache picoquicfirst/xcache.cpp)
 target_link_libraries(xcache picoquic-core picoquicxia
