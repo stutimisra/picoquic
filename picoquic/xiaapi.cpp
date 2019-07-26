@@ -278,7 +278,8 @@ int picoquic_xia_sendmsg(int sockfd, uint8_t* bytes, int length,
 	// Convert addr to wire format
 	// Create XIA Header
 	struct click_xia xiah;
-	memset(&xiah, 0, sizeof(struct click_xia));
+	size_t xiah_len = sizeof(xiah) - sizeof(xiah.node);
+	memset(&xiah, 0, xiah_len);
 	xiah.ver = 1;
 	xiah.nxt = CLICK_XIA_NXT_DATA;
 	xiah.plen = htons(length);
@@ -307,7 +308,7 @@ int picoquic_xia_sendmsg(int sockfd, uint8_t* bytes, int length,
 	// Combine header, addresses and user provided bytes
 	struct iovec parts[3];
 	parts[0].iov_base = &xiah;
-	parts[0].iov_len = sizeof(xiah);
+	parts[0].iov_len = xiah_len;
 	parts[1].iov_base = addr_nodes.data();
 	parts[1].iov_len = sizeof(click_xia_xid_node) * num_nodes;
 	parts[2].iov_base = bytes;
@@ -374,12 +375,13 @@ int picoquic_xia_recvfrom(int sockfd, sockaddr_x* addr_from,
 
 	// We receive the XIA Header minus DAGs
 	struct click_xia xiah;
+	size_t xiah_len = sizeof(xiah) - sizeof(xiah.node);
 	// and the DAGs along with payload
 	uint8_t addrspluspayload[1532];
 
 	struct iovec parts[2];
 	parts[0].iov_base = &xiah;
-	parts[0].iov_len = sizeof(xiah);
+	parts[0].iov_len = xiah_len;
 	parts[1].iov_base = addrspluspayload;
 	parts[1].iov_len = sizeof(addrspluspayload);
 

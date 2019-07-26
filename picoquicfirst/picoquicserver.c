@@ -257,10 +257,10 @@ int main()
 			// Get address lengths
 			socklen_t to_len = sizeof(struct sockaddr_in);
 			socklen_t local_len = sizeof(struct sockaddr_in);
-			if(sp->addr_to.ss_family != AF_INET) {
+			if(sp->addr_to.sx_family != AF_INET) {
 				to_len = sizeof(struct sockaddr_in6);
 			}
-			if(sp->addr_local.ss_family != AF_INET) {
+			if(sp->addr_local.sx_family != AF_INET) {
 				local_len = sizeof(struct sockaddr_in6);
 			}
 			// send out any outstanding stateless packets

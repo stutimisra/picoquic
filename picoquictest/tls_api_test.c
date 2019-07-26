@@ -838,9 +838,9 @@ int tls_api_one_sim_round(picoquic_test_tls_api_ctx_t* test_ctx,
 
                         *was_active |= 1;
                         memcpy(&packet->addr_from, &sp->addr_local,
-                            (sp->addr_local.ss_family == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6));
+                            (sp->addr_local.sx_family == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6));
                         memcpy(&packet->addr_to, &sp->addr_to,
-                            (sp->addr_to.ss_family == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6));
+                            (sp->addr_to.sx_family == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6));
                         memcpy(packet->bytes, sp->bytes, sp->length);
                         packet->length = sp->length;
 

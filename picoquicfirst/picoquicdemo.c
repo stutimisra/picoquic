@@ -277,9 +277,9 @@ int quic_server(const char* server_name, int server_port,
             while ((sp = picoquic_dequeue_stateless_packet(qserver)) != NULL) {
                 (void)picoquic_send_through_server_sockets(&server_sockets,
                     (struct sockaddr*)&sp->addr_to,
-                    (sp->addr_to.ss_family == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6),
+                    (sp->addr_to.sx_family == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6),
                     (struct sockaddr*)&sp->addr_local,
-                    (sp->addr_local.ss_family == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6),
+                    (sp->addr_local.sx_family == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6),
                     dest_if == -1 ? sp->if_index_local : dest_if,
                     (const char*)sp->bytes, (int)sp->length);
 

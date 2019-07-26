@@ -1467,7 +1467,7 @@ int picoquic_prepare_server_address_migration(picoquic_cnx_t* cnx)
             memset(&dest_addr, 0, sizeof(struct sockaddr_storage));
 
             /* program a migration. */
-            if (ipv4_received && cnx->path[0]->peer_addr.ss_family == AF_INET) {
+            if (ipv4_received && cnx->path[0]->peer_addr.sx_family == AF_INET) {
                 /* select IPv4 */
                 ipv6_received = 0;
             }

@@ -2,7 +2,19 @@ cmake_minimum_required(VERSION 3.0.2)
 cmake_policy(SET CMP0003 NEW)
 
 include(ExternalProject)
+include(TestBigEndian)
 project(picoquic)
+
+add_definitions(-DCLICK_BIG_ENDIAN=4321)
+add_definitions(-DCLICK_LITTLE_ENDIAN=1234)
+TEST_BIG_ENDIAN(IS_BIG_ENDIAN)
+if(IS_BIG_ENDIAN)
+ message(STATUS "BIG_ENDIAN")
+ add_definitions(-DCLICK_BYTE_ORDER=4321)
+else()
+ message(STATUS "LITTLE_ENDIAN")
+ add_definitions(-DCLICK_BYTE_ORDER=1234)
+endif()
 
 # XIA codebase
 ExternalProject_Add(xia

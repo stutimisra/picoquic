@@ -267,7 +267,7 @@ int main()
 		picoquic_stateless_packet_t* sp;
 		while((sp = picoquic_dequeue_stateless_packet(server)) != NULL) {
 			printf("Server: found a stateless packet to send\n");
-			if(sp->addr_to.ss_family != AF_XIA) {
+			if(sp->addr_to.sx_family != AF_XIA) {
 				std::cout << "ERROR: Non XIA stateless packet" << std::endl;
 				break;
 			}
