@@ -12,6 +12,7 @@ extern "C" {
 };
 #include "xiaapi.hpp"
 #include "dagaddr.hpp"
+#include "cid_header.h"
 
 #define SERVER_CERT_FILE "certs/cert.pem"
 #define SERVER_KEY_FILE "certs/key.pem"
@@ -199,6 +200,9 @@ int main()
 	GraphPtr my_addr;
 	GraphPtr dummy_cid_addr;
 	int sockfd = -1;
+	std::string dummydata("Hello World!");
+	time_t ttl = 0;
+	auto chdr = new CIDHeader(dummydata, ttl);
 
 	auto conf = LocalConfig::get_instance(CONFFILE);
 	auto xcache_aid = conf.get(XCACHE_AID);

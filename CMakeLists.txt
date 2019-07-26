@@ -167,6 +167,9 @@ target_link_libraries(picoquicclientxia picoquic-core picoquicxia
 )
 include_directories(picoquicclientxia ${XIADIR}/api/include)
 
+find_library(XCACHEHDR_LIBRARY xcachehdr HINTS ${XIADIR}/api/lib)
+find_library(XCACHE_LIBRARY xcache HINTS ${XIADIR}/api/lib)
+
 add_executable(xcacheclient picoquicfirst/xcacheclient.cpp)
 target_link_libraries(xcacheclient picoquic-core picoquicxia
 	localconfig
@@ -187,10 +190,13 @@ include_directories(picoquicserverxia ${XIADIR}/api/include)
 add_executable(xcache picoquicfirst/xcache.cpp)
 target_link_libraries(xcache picoquic-core picoquicxia
 	localconfig
+	${XCACHEHDR_LIBRARY}
+	${XCACHE_LIBRARY}
 	${PTLS_LIBRARIES}
 	${OPENSSL_LIBRARIES}
 	${CMAKE_DL_LIBS}
 )
+include_directories(xcache ${XIADIR}/api/xcache/headers)
 
 add_executable(picoquic_ct picoquic_t/picoquic_t.c
  ${PICOQUIC_TEST_LIBRARY_FILES} )
