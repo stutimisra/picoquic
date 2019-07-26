@@ -167,8 +167,8 @@ target_link_libraries(picoquicclientxia picoquic-core picoquicxia
 )
 include_directories(picoquicclientxia ${XIADIR}/api/include)
 
-find_library(XCACHEHDR_LIBRARY xcachehdr HINTS ${XIADIR}/api/lib)
-find_library(XCACHE_LIBRARY xcache HINTS ${XIADIR}/api/lib)
+set(XCACHEHDR_LIBRARY ${XIADIR}/api/lib/libxcachehdr.so)
+set(XCACHE_LIBRARY ${XIADIR}/api/lib/libxcache.so)
 
 add_executable(xcacheclient picoquicfirst/xcacheclient.cpp)
 target_link_libraries(xcacheclient picoquic-core picoquicxia
