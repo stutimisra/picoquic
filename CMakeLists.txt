@@ -133,6 +133,7 @@ add_library(picoquic-core
     ${PICOQUIC_LIBRARY_FILES}
 )
 include_directories(picoquic-core ${XIADIR}/api/include)
+add_dependencies(picoquic-core xia)
 
 set(PTLS_HINTS ${CMAKE_BINARY_PATH}/picotls picotls)
 set(PTLS_LIBRARIES picotls-core picotls-minicrypto picotls-openssl)
