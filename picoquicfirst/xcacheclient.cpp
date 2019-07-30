@@ -3,6 +3,7 @@
 // XIA support
 #include "xiaapi.hpp"
 #include "dagaddr.hpp"
+#include "cid_header.h"
 
 // C++ includes
 #include <iostream>
@@ -42,6 +43,9 @@ int client_callback(picoquic_cnx_t* cnx,
 		picoquic_call_back_event_t event, void *callback_context)
 {
 	printf("Client callback: stream: %lu datalen: %zu\n", stream_id, length);
+	std::string data("Hello World!");
+	time_t ttl = 0;
+	ContentHeader* chdr = new CIDHeader(data, ttl);
 
 	struct callback_context_t *context =
 		(struct callback_context_t*)callback_context;

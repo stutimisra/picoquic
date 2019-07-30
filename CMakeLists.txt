@@ -174,10 +174,13 @@ set(XCACHE_LIBRARY ${XIADIR}/api/lib/libxcache.so)
 add_executable(xcacheclient picoquicfirst/xcacheclient.cpp)
 target_link_libraries(xcacheclient picoquic-core picoquicxia
 	localconfig
+	${XCACHEHDR_LIBRARY}
+	${XCACHE_LIBRARY}
 	${PTLS_LIBRARIES}
 	${OPENSSL_LIBRARIES}
 	${CMAKE_DL_LIBS}
 )
+include_directories(xcacheclient ${XIADIR}/api/xcache/headers)
 
 add_executable(picoquicserverxia picoquicfirst/picoquicserverxia.cpp)
 target_link_libraries(picoquicserverxia picoquic-core picoquicxia
