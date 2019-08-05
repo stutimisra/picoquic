@@ -47,7 +47,7 @@ void print_address(struct sockaddr* address, char* label)
 typedef struct {
 	int stream_open;     // Assuming just one stream for now
 	int received_so_far; // Number of bytes received in that one stream
-	uint8_t* data;
+	unique_ptr<uint8_t[]> data;
 	size_t datalen;
 	size_t sent_offset;
 	NodePtr xid;
@@ -55,28 +55,16 @@ typedef struct {
 
 int buildDataToSend(callback_context_t* ctx, size_t datalen)
 {
-	/*
-	ctx->data = (uint8_t*) malloc(datalen);
-	if (ctx->data == NULL) {
-		return -1;
-	}
-	*/
-	ctx->data = new uint8_t[datalen];
-	memset(ctx->data, 0xf5, datalen);
+	//ctx->data = new uint8_t[datalen];
+	ctx->data.reset(new uint8_t[datalen]);
+	memset(ctx->data.get(), 0xf5, datalen);
 	return 0;
-}
-
-void cleanupData(uint8_t* data)
-{
-	if (data) {
-		free (data);
-	}
 }
 
 static int sendData(picoquic_cnx_t* connection,
 		uint64_t stream_id, callback_context_t* ctx)
 {
-	if (ctx->data == NULL) {
+	if (ctx->data == nullptr) {
 		if (buildDataToSend(ctx, 8192) ) {
 			cout << "ERROR creating data buffer to send" << endl;
 			return -1;
@@ -87,7 +75,7 @@ static int sendData(picoquic_cnx_t* connection,
 
 	if(ctx->sent_offset == 0) {
 		int ret = picoquic_add_to_stream(connection, stream_id,
-				ctx->data, ctx->datalen, 1);
+				ctx->data.get(), ctx->datalen, 1);
 		//if(picoquic_add_to_stream(connection, stream_id,
 				//ctx->data, ctx->datalen, 1)) {
 		if(ret != 0) {
