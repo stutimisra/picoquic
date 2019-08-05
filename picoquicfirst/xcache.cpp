@@ -1,5 +1,8 @@
 #include "localconfig.hpp"
 
+#include <string>
+#include <memory>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,6 +23,12 @@ extern "C" {
 #define CONFFILE "local.conf"
 #define XCACHE_AID "XCACHE_AID"
 #define TEST_CID "TEST_CID"
+
+using namespace std;
+
+static int server_callback(picoquic_cnx_t* connection,
+		uint64_t stream_id, uint8_t* bytes, size_t length,
+		picoquic_call_back_event_t event, void* ctx);
 
 void print_address(struct sockaddr* address, char* label)
 {
@@ -46,10 +55,13 @@ typedef struct {
 
 int buildDataToSend(callback_context_t* ctx, size_t datalen)
 {
+	/*
 	ctx->data = (uint8_t*) malloc(datalen);
 	if (ctx->data == NULL) {
 		return -1;
 	}
+	*/
+	ctx->data = new uint8_t[datalen];
 	memset(ctx->data, 0xf5, datalen);
 	return 0;
 }
@@ -65,8 +77,8 @@ static int sendData(picoquic_cnx_t* connection,
 		uint64_t stream_id, callback_context_t* ctx)
 {
 	if (ctx->data == NULL) {
-		if ( buildDataToSend(ctx, 8192) ) {
-			printf("ERROR creating data buffer to send\n");
+		if (buildDataToSend(ctx, 8192) ) {
+			cout << "ERROR creating data buffer to send" << endl;
 			return -1;
 		}
 		ctx->datalen = 8192;
@@ -79,102 +91,103 @@ static int sendData(picoquic_cnx_t* connection,
 		//if(picoquic_add_to_stream(connection, stream_id,
 				//ctx->data, ctx->datalen, 1)) {
 		if(ret != 0) {
-			printf("ERROR: queuing data to send. Returned %d\n", ret);
+			cout << "ERROR: queuing data to send. Returned " <<  ret << endl;
 			return -1;
 		}
 		ctx->sent_offset = ctx->datalen;
 	}
 }
 
+int remove_context(picoquic_cnx_t* connection,
+		callback_context_t* context) {
+	if(context != NULL) {
+		delete context;
+		picoquic_set_callback(connection, server_callback, NULL);
+		std::cout << "ServerCallback: freed context" << std::endl;
+	}
+	return 0;
+}
+
+int process_data(callback_context_t* context, uint8_t* bytes, size_t length)
+{
+	// Missing context
+	if(!context) {
+		cout << __FUNCTION__ << " ERROR missing context" << endl;
+		return -1;
+	}
+
+	// No data to process
+	if(length <= 0) {
+		return 0;
+	}
+	string data((const char*)bytes, length);
+	cout << __FUNCTION__ << " Client sent " << data.c_str() << endl;
+	context->received_so_far += length;
+}
+
 static int server_callback(picoquic_cnx_t* connection,
 		uint64_t stream_id, uint8_t* bytes, size_t length,
 		picoquic_call_back_event_t event, void* ctx)
 {
-	printf("ServerCallback: stream: %lu, len: %zu, event: %d\n",
-			stream_id, length, event);
+	cout << "ServerCallback: stream " << stream_id
+		 << " len: " << length
+		 << " event: " << event << endl;
 	callback_context_t* context = (callback_context_t*)ctx;
 
 	switch(event) {
 		case picoquic_callback_ready:
-			printf("ServerCallback: Ready\n");
-			printf("ServerCallback: Sending chunk: %s\n",
-					context->xid->to_string().c_str());
-			//sendData(connection, stream_id, context);
+			cout << "ServerCallback: Ready" << endl;
 			break;
 		case picoquic_callback_almost_ready:
-			printf("ServerCallback: AlmostReady\n");
-			printf("ServerCallback: Will send chunk: %s\n",
-					context->xid->to_string().c_str());
-			//sendData(connection, stream_id, context);
+			cout << "ServerCallback: AlmostReady" << endl;
 			break;
 		// Handle the connection related events
 		case picoquic_callback_close:
-			printf("ServerCallback: Close\n");
+			cout << "ServerCallback: Close" << endl;
+			return (remove_context(connection, context));
 		case picoquic_callback_application_close:
-			printf("ServerCallback: ApplicationClose\n");
+			cout << "ServerCallback: ApplicationClose" << endl;
+			return (remove_context(connection, context));
 		case picoquic_callback_stateless_reset:
-			printf("ServerCallback: StatelessReset\n");
-			if(context != NULL) {
-				// Free the context memory and set it NULL for callback
-				delete context;
-				picoquic_set_callback(connection, server_callback, NULL);
-				printf("ServerCallback: need to free context\n");
-			}
-			return 0;
-
+			cout << "ServerCallback: StatelessReset" << endl;
+			return (remove_context(connection, context));
 		// Handle the stream related events
 		case picoquic_callback_prepare_to_send:
 			// Unexpected call
-			printf("ServerCallback: PrepareToSend\n");
+			cout << "ServerCallback: PrepareToSend" << endl;
 			return -1;
 		case picoquic_callback_stop_sending:
-			printf("ServerCallback: StopSending: resetting stream\n");
+			cout << "ServerCallback: StopSending: resetting stream" << endl;
 			picoquic_reset_stream(connection, stream_id, 0);
 			return 0;
 		case picoquic_callback_stream_reset:
-			printf("ServerCallback: StreamReset: resetting stream\n");
+			cout << "ServerCallback: StreamReset: resetting stream" << endl;
 			picoquic_reset_stream(connection, stream_id, 0);
 			return 0;
 		case picoquic_callback_stream_gap:
-			printf("ServerCallback: StreamGap\n");
+			cout << "ServerCallback: StreamGap" << endl;
 			// This is not supported by picoquic yet
 			picoquic_reset_stream(connection, stream_id,
 					PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION);
 			return 0;
 		case picoquic_callback_stream_data:
-			printf("ServerCallback: StreamData\n");
+			cout << "ServerCallback: StreamData" << endl;
+			sendData(connection, stream_id, context);
+			return(process_data(context, bytes, length));
 		case picoquic_callback_stream_fin:
-			printf("ServerCallback: StreamFin\n");
-			if(event == picoquic_callback_stream_fin && length == 0) {
-				printf("ServerCallback: StreamFin - resetting!\n");
+			cout << "ServerCallback: StreamFin" << endl;
+			if(length == 0) {
+				cout << "ServerCallback: StreamFin - resetting!" << endl;
 				picoquic_reset_stream(connection, stream_id,
 						PICOQUIC_TRANSPORT_STREAM_STATE_ERROR);
 				return 0;
 			}
-			// If there's to context, create one
-			if(!context) {
-				printf("ServerCallback: ERROR callback without context\n");
-				break;
-			} else {
-				if(length > 0) {
-					//printf("ERROR: data from client but none expected\n");
-					char data[length+1];
-					memcpy(data, bytes, length);
-					data[length] = 0;
-					printf("ServerCallback: Client sent: %s\n", data);
-					context->received_so_far += length;
-					// Send it back to client and FIN the stream
-					//(void)picoquic_add_to_stream(connection, stream_id,
-							//(uint8_t*)data, length, 1);
-					sendData(connection, stream_id, context);
-				}
-			}
-			if(event != picoquic_callback_stream_data) {
-				printf("ServerCallback: StreamFin\n");
-				printf("ServerCallback: Client sent %d bytes before ending\n",
-						context->received_so_far);
-			}
-			break;
+			process_data(context, bytes, length);
+			sendData(connection, stream_id, context);
+			cout << "ServerCallback: StreamFin" << endl;
+			cout << "ServerCallback: got " << context->received_so_far
+				<< " bytes from client before ending" << endl;
+			return 0;
 	};
 	return 0;
 }
