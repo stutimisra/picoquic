@@ -29,6 +29,8 @@ extern "C" {
 #define TICKET_STORE "TICKET_STORE"
 #define TEST_CID "TEST_CID"
 
+using namespace std;
+
 // If there were multiple streams, we would track progress for them here
 struct callback_context_t {
 	int connected;
@@ -37,12 +39,20 @@ struct callback_context_t {
 	uint64_t last_interaction_time;
 };
 
+int end_stream(picoquic_cnx_t* cnx, uint64_t stream_id,
+		struct callback_context_t* context)
+{
+	picoquic_reset_stream(cnx, stream_id, 0);
+	context->stream_open = 0;
+	return 0;
+}
 //picoquic_stream_data_cb_fn
 int client_callback(picoquic_cnx_t* cnx,
 		uint64_t stream_id, uint8_t*bytes, size_t length,
 		picoquic_call_back_event_t event, void *callback_context)
 {
-	printf("Client callback: stream: %lu datalen: %zu\n", stream_id, length);
+	cout << __FUNCTION__ << "stream: " << stream_id
+		<< " datalen: " << length << endl;
 	std::string data("Hello World!");
 	time_t ttl = 0;
 	ContentHeader* chdr = new CIDHeader(data, ttl);
@@ -54,56 +64,58 @@ int client_callback(picoquic_cnx_t* cnx,
 
 	switch(event) {
 		case picoquic_callback_ready:
-			printf("Callback: ready\n");
+			cout << "Callback: ready" << endl;
 			break;
 		case picoquic_callback_almost_ready:
-			printf("Callback: almost_ready\n");
+			cout << "Callback: almost ready" << endl;
 			break;
 		case picoquic_callback_close:
-			printf("Callback: close\n");
+			cout << "Callback: close" << endl;
+			return end_stream(cnx, stream_id, context);
 		case picoquic_callback_application_close:
-			printf("Callback: application close\n");
+			cout << "Callback: application close" << endl;
+			return end_stream(cnx, stream_id, context);
 		case picoquic_callback_stateless_reset:
-			printf("Callback: stateless reset\n");
-			context->stream_open = 0;
-			return 0;
+			cout << "Callback: stateless reset" << endl;
+			return end_stream(cnx, stream_id, context);
 		case picoquic_callback_stream_reset:
-			printf("Callback: stream reset\n");
+			cout << "Callback: stream reset" << endl;
+			return end_stream(cnx, stream_id, context);
 		case picoquic_callback_stop_sending:
-			printf("Callback: stop_sending\n");
-			picoquic_reset_stream(cnx, stream_id, 0);
-			context->stream_open = 0;
-			return 0;
+			cout << "Callback: stop sending" << endl;
+			return end_stream(cnx, stream_id, context);
 		case picoquic_callback_stream_gap:
-			printf("Callback: stream gap\n");
+			cout << "Callback: stream gap" << endl;
 			picoquic_reset_stream(cnx, stream_id,
 					PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION);
 			context->stream_open = 0;
 			return 0;
 		case picoquic_callback_stream_data:
-			printf("Callback: stream data\n");
+			cout << "Callback: stream data" << endl;
 			if(length > 0) {
 				std::vector<uint8_t> data(bytes, bytes+length);
-				printf("======= Server sent: %zu bytes\n", length);
+				string sep(8, '+');
+				cout << sep << "Server sent " << length << " bytes" << endl;
 				context->received_so_far += length;
 				if(context->received_so_far >= 8192) {
-					printf("Got %d bytes so far. Resetting stream\n",
-							context->received_so_far);
+					cout << "Got " << context->received_so_far
+						<< " bytes so far. Resetting stream" << endl;
 					picoquic_reset_stream(cnx, stream_id, 0);
 				}
 			}
 			break;
 		case picoquic_callback_stream_fin:
-			printf("Callback: stream finished\n");
+			cout << "Callback: stream finished" << endl;
 			if(length > 0) {
 				std::vector<uint8_t> data(bytes, bytes+length);
-				printf("++++++ Server sent: %zu bytes on finish\n", length);
+				cout << "++++++ Server sent " << length
+					<< " bytes on finish" << endl;
 				context->received_so_far += length;
 			}
 			context->stream_open = 0;
-			printf("Reception completed after %d bytes.\n",
-					context->received_so_far);
-			printf("Resetting the stream after it finished.\n");
+			cout << "Reception done after " << context->received_so_far
+				<< " bytes" << endl;
+			cout << "Resetting the stream after it finished." << endl;
 			picoquic_reset_stream(cnx, stream_id, 0);
 			/*
 			// Closing connection immediately
@@ -112,7 +124,7 @@ int client_callback(picoquic_cnx_t* cnx,
 			*/
 			break;
 		default:
-			printf("ERROR: unknown callback event %d\n", event);
+			cout << "ERROR: unknown callback event " << event << endl;
 	};
 	return 0;
 }
@@ -120,7 +132,7 @@ int client_callback(picoquic_cnx_t* cnx,
 void start_stream(picoquic_cnx_t* connection,
 		struct callback_context_t* context)
 {
-	printf("Starting a stream\n");
+	cout << "Starting a stream" << endl;
 
 	uint64_t stream_id = 0;
 	char data[] = "Hello world!";
@@ -128,12 +140,12 @@ void start_stream(picoquic_cnx_t* connection,
 	context->connected = 1;
 
 	// Queue up a "Hello world!" to be sent to the server
-	printf("Sending %ld bytes of data on stream\n", sizeof(data));
+	cout << "Sending " << sizeof(data) << " bytes on stream" << endl;
 	if(picoquic_add_to_stream(connection,
 				stream_id, // Any arbitrary stream ID client picks
 				(uint8_t*)data, sizeof(data), // data to be sent
 				1)) { // finished; would be 0 if interacting more with server
-		printf("ERROR: sending hello on stream\n");
+		cout << "ERROR: sending hello on stream" << endl;
 	}
 }
 
@@ -197,7 +209,7 @@ int main()
 	std::cout << "CLIENTADDR: " << mydag->dag_string() << std::endl;
 	mydag->fill_sockaddr(&my_address);
 	my_addrlen = sizeof(sockaddr_x);
-	printf("Created socket to talk to server\n");
+	cout << "Created socket to talk to server" << endl;
 	state = 1; // socket created
 
 	// Create QUIC context for client
@@ -222,16 +234,16 @@ int main()
 			);
 
 	if(client == NULL) {
-		printf("ERROR: creating client\n");
+		cout << "ERROR: creating client" << endl;
 		goto client_done;
 	}
-	printf("Created QUIC context\n");
+	cout << "Created QUIC context" << endl;
 	state = 2; // picoquic context created for client
 
 	// Open a log file for writing
 	logfile = fopen("client.log", "w");
 	if(logfile == NULL) {
-		printf("ERROR opening log file\n");
+		cout << "ERROR opening log file" << endl;
 		goto client_done;
 	}
 	PICOQUIC_SET_LOG(client, logfile);
@@ -254,10 +266,10 @@ int main()
 			1           	// client mode, set to 1, if on client side
 			);
 	if(connection == NULL) {
-		printf("ERROR: creating client connection in QUIC\n");
+		cout << "ERROR: creating client connection in QUIC" << endl;
 		goto client_done;
 	}
-	printf("Created QUIC connection instance\n");
+	cout << "Created QUIC connection instance" << endl;
 	state = 4;
 
 	// Set a callback for the client connection
@@ -266,37 +278,37 @@ int main()
 
 	// Now connect to the server
 	if(picoquic_start_client_cnx(connection)) {
-		printf("ERROR: connecting to server\n");
+		cout << "ERROR: connecting to server" << endl;
 		goto client_done;
 	}
-	printf("Started connection to server\n");
+	cout << "Started connection to server" << endl;
 
 	// If 0RTT is available, start a stream
 	if(picoquic_is_0rtt_available(connection)) {
 		start_stream(connection, &callback_context);
 		zero_rtt_available = 1;
 	}
-	printf("Zero RTT available: %d\n", zero_rtt_available);
+	cout << "Zero RTT available: " << zero_rtt_available << endl;
 
 	// Send a packet to get the connection establishment started
 	if(picoquic_prepare_packet(connection, current_time,
 				send_buffer, sizeof(send_buffer), &send_length,
 				(struct sockaddr_storage*)&server_address, &server_addrlen,
 				(struct sockaddr_storage*)&my_address, &my_addrlen)) {
-		printf("ERROR: preparing a QUIC packet to send\n");
+		cout << "ERROR: preparing a QUIC packet to send" << endl;
 		goto client_done;
 	}
-	printf("Prepared packet of size %zu\n", send_length);
+	cout << "Prepared packet of size " <<  send_length << endl;
 	mydag->fill_sockaddr(&my_address);
 	int bytes_sent;
 	if(send_length > 0) {
 		bytes_sent = picoquic_xia_sendmsg(sockfd, send_buffer,
 				(int) send_length, &server_address, &my_address);
 		if(bytes_sent < 0) {
-			printf("ERROR: sending packet to server\n");
+			cout << "ERROR: sending packet to server";
 			goto client_done;
 		}
-		printf("Sent %d byte packet to server\n", bytes_sent);
+		cout << "Sent " << bytes_sent << " byte packet to server" << endl;
 	}
 
 	// Wait for incoming packets
@@ -312,24 +324,24 @@ int main()
 
 		// Exit on error
 		if(bytes_recv < 0) {
-			printf("ERROR: receiving packet after select\n");
+			cout << "ERROR: receiving packet after select" << endl;
 			goto client_done;
 		}
 
 		// Get the connection state
 		picoquic_state_enum cnx_state = picoquic_get_cnx_state(connection);
-		printf("Connection state: %d\n", cnx_state);
+		cout << "Connection state: " << cnx_state << endl;
 
 		// We have a packet to process
 		if(bytes_recv > 0) {
-			printf("Got %d byte packet\n", bytes_recv);
+			cout << "Got " << bytes_recv << "byte packet" << endl;
 			// TODO: it seems this function always returns 0
 			if(picoquic_incoming_packet(client, buffer,
 						(size_t)bytes_recv, (struct sockaddr*)&packet_from,
 						(struct sockaddr*)&packet_to, if_index_to,
 						received_ecn,
 						current_time)) {
-				printf("ERROR: processing incoming packet\n");
+				cout << "ERROR: processing incoming packet" << endl;
 				delta_t = 0;
 			}
 			delta_t = 0;
@@ -342,13 +354,15 @@ int main()
 
 				// The connection is ready. Start a stream.
 				if(!established) {
-					printf("Connected! ver: %x, I-CID: %llx\n",
+					cout << "Connected! ver: " <<
 							picoquic_supported_versions[
-							connection->version_index].version,
+							connection->version_index].version
+							<< " I-CID: " << 
 							(unsigned long long)picoquic_val64_connection_id(
-								picoquic_get_logging_cnxid(connection)));
+								picoquic_get_logging_cnxid(connection))
+							<< endl;
 					if(!zero_rtt_available) {
-						printf("zero rtt was not available, starting stream\n");
+						cout << "0rtt unavailable, starting stream" << endl;
 						start_stream(connection, &callback_context);
 					}
 					established = 1;
@@ -357,7 +371,7 @@ int main()
 
 			// If the stream has been closed, we close the connection
 			if(callback_context.connected && !callback_context.stream_open) {
-				printf("The stream was not open, close connection\n");
+				cout << "The stream was not open, close connection" << endl;
 				picoquic_close(connection, 0);
 				connection = NULL;
 				break;
@@ -367,7 +381,7 @@ int main()
 			if(current_time > callback_context.last_interaction_time
 					&& current_time - callback_context.last_interaction_time
 					    > 10000000ull) {
-				printf("No progress for 10 seconds. Closing\n");
+				cout << "No progress for 10 seconds. Closing" << endl;
 				picoquic_close(connection, 0);
 				connection = NULL;
 				break;
@@ -379,21 +393,21 @@ int main()
 		send_length = PICOQUIC_MAX_PACKET_SIZE;
 		while(send_length > 0) {
 			// Send out all packets waiting to go
-		if(picoquic_prepare_packet(connection, current_time,
-					send_buffer, sizeof(send_buffer), &send_length,
-					NULL, NULL, NULL, NULL)) {
-			printf("ERROR sending QUIC packet\n");
-			goto client_done;
-		}
-		if(send_length > 0) {
-			printf("Sending packet of size %ld\n", send_length);
-			bytes_sent = picoquic_xia_sendmsg(sockfd, send_buffer,
-					(int) send_length, &server_address, &my_address);
-			//printf("Sending a packet of size %d\n", (int)send_length);
-			if(bytes_sent <= 0) {
-				printf("ERROR sending packet to server\n");
+			if(picoquic_prepare_packet(connection, current_time,
+						send_buffer, sizeof(send_buffer), &send_length,
+						NULL, NULL, NULL, NULL)) {
+				cout << "ERROR sending QUIC packet" << endl;
+				goto client_done;
 			}
-		}
+			if(send_length > 0) {
+				cout << "Sending packet of size " << send_length << endl;
+				bytes_sent = picoquic_xia_sendmsg(sockfd, send_buffer,
+						(int) send_length, &server_address, &my_address);
+				//printf("Sending a packet of size %d\n", (int)send_length);
+				if(bytes_sent <= 0) {
+					cout << "ERROR sending packet to server" << endl;
+				}
+			}
 		}
 
 		// How long before we timeout waiting for more packets
@@ -404,7 +418,7 @@ int main()
 	// Save tickets from server, so we can join quickly next time
 	if(picoquic_save_tickets(client->p_first_ticket, current_time,
 				ticket_filename.c_str()) != 0) {
-		printf("ERROR saving session tickets\n");
+		cout << "ERROR saving session tickets" << endl;
 	}
 	// Everything went well, so return success
 	retval = 0;
