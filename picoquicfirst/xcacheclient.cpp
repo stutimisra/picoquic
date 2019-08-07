@@ -51,7 +51,7 @@ int client_callback(picoquic_cnx_t* cnx,
 		uint64_t stream_id, uint8_t*bytes, size_t length,
 		picoquic_call_back_event_t event, void *callback_context)
 {
-	cout << __FUNCTION__ << "stream: " << stream_id
+	cout << __FUNCTION__ << " stream: " << stream_id
 		<< " datalen: " << length << endl;
 	std::string data("Hello World!");
 	time_t ttl = 0;
@@ -334,7 +334,7 @@ int main()
 
 		// We have a packet to process
 		if(bytes_recv > 0) {
-			cout << "Got " << bytes_recv << "byte packet" << endl;
+			cout << "Got " << bytes_recv << " byte packet" << endl;
 			// TODO: it seems this function always returns 0
 			if(picoquic_incoming_packet(client, buffer,
 						(size_t)bytes_recv, (struct sockaddr*)&packet_from,
@@ -390,8 +390,7 @@ int main()
 		}
 
 		// We get here whether there was a packet or a timeout
-		send_length = PICOQUIC_MAX_PACKET_SIZE;
-		while(send_length > 0) {
+		do {
 			// Send out all packets waiting to go
 			if(picoquic_prepare_packet(connection, current_time,
 						send_buffer, sizeof(send_buffer), &send_length,
@@ -408,7 +407,7 @@ int main()
 					cout << "ERROR sending packet to server" << endl;
 				}
 			}
-		}
+		} while(send_length > 0);
 
 		// How long before we timeout waiting for more packets
 		delta_t = picoquic_get_next_wake_delay(client, current_time,
