@@ -64,6 +64,9 @@ int buildDataToSend(callback_context_t* ctx, size_t datalen)
 static int sendData(picoquic_cnx_t* connection,
 		uint64_t stream_id, callback_context_t* ctx)
 {
+	if (!ctx) {
+		return -1;
+	}
 	if (ctx->data == nullptr) {
 		if (buildDataToSend(ctx, 8192) ) {
 			cout << "ERROR creating data buffer to send" << endl;
