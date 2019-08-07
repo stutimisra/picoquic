@@ -7,6 +7,7 @@
 
 // C++ includes
 #include <iostream>
+#include <memory>
 
 // C includes
 #include <string.h> // memset
@@ -39,6 +40,7 @@ struct callback_context_t {
 	uint64_t last_interaction_time;
 };
 
+// End a stream on the given connection
 int end_stream(picoquic_cnx_t* cnx, uint64_t stream_id,
 		struct callback_context_t* context)
 {
@@ -55,7 +57,7 @@ int client_callback(picoquic_cnx_t* cnx,
 		<< " datalen: " << length << endl;
 	std::string data("Hello World!");
 	time_t ttl = 0;
-	ContentHeader* chdr = new CIDHeader(data, ttl);
+	unique_ptr<ContentHeader> chdr = make_unique<CIDHeader>(data, ttl);
 
 	struct callback_context_t *context =
 		(struct callback_context_t*)callback_context;
