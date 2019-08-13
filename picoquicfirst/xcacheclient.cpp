@@ -8,10 +8,14 @@
 // C++ includes
 #include <iostream>
 #include <memory>
+#include <vector>
+#include <queue>
+#include <string>
 
 // C includes
 #include <string.h> // memset
 #include <stdio.h>
+#include <arpa/inet.h>
 
 extern "C" {
 #include "picoquic.h" // picoquic_create, states, err, pkt types, contexts
@@ -32,13 +36,112 @@ extern "C" {
 
 using namespace std;
 
+enum class ChunkState {INITIAL, FETCHING_HEADER, FETCHING_DATA, READY};
+
+struct chunk {
+	ChunkState state = ChunkState::INITIAL;
+	int hdr_len = -1;
+	vector<uint8_t> buf;
+	unique_ptr<ContentHeader> chdr;
+	unique_ptr<uint8_t> data;
+};
+
 // If there were multiple streams, we would track progress for them here
 struct callback_context_t {
 	int connected;
 	int stream_open;
 	int received_so_far;
 	uint64_t last_interaction_time;
+	unique_ptr<struct chunk> chunk;
 };
+
+int trim_buffer(vector<uint8_t>& buf, int len)
+{
+	if(len > buf.size()) {
+		return -1;
+	}
+	buf.erase(buf.begin(), buf.begin() + len);
+	return 0;
+}
+
+int process_data(struct callback_context_t* context)
+{
+	auto buf = &(context->chunk->buf);
+	int hdr_len = -1;
+	size_t data_len = -1;
+	uint32_t* dataptr;
+	char* datastrptr;
+	unique_ptr<string> d;
+	cout << __FUNCTION__ << " Processing data of size: "
+		<< context->chunk->buf.size() << endl;
+
+	while(buf->size() != 0) {
+		switch(context->chunk->state) {
+			case ChunkState::INITIAL:
+				cout << __FUNCTION__ << " state INITIAL" << endl;
+				if(buf->size() < 4) {
+					return 0;
+				}
+				// Get header length and switch to FETCHING_HEADER state
+				dataptr = reinterpret_cast<uint32_t*>(buf->data());
+				cout << __FUNCTION__ << " hdr len (NBO): " << *dataptr << endl;
+				context->chunk->hdr_len = ntohl(*dataptr);
+				cout << "Got header len: " << context->chunk->hdr_len << endl;
+				buf->erase(buf->begin(), buf->begin() + sizeof(uint32_t));
+				context->chunk->state = ChunkState::FETCHING_HEADER;
+				break;
+			case ChunkState::FETCHING_HEADER:
+				cout << __FUNCTION__ << " state FETCHING_HEADER" << endl;
+				hdr_len = context->chunk->hdr_len;
+				if(buf->size() < hdr_len) {
+					return 0;
+				}
+				// The entire header has been received
+				cout << "Got header" << endl;
+				datastrptr = reinterpret_cast<char*>(buf->data());
+				d.reset(new string(datastrptr, hdr_len));
+				context->chunk->chdr.reset(new CIDHeader(*d));
+				buf->erase(buf->begin(), buf->begin() + hdr_len);
+				context->chunk->state = ChunkState::FETCHING_DATA;
+				break;
+			case ChunkState::FETCHING_DATA:
+				cout << __FUNCTION__ << " state FETCHING_DATA" << endl;
+				data_len = context->chunk->chdr->content_len();
+				cout << __FUNCTION__ << " buf size: " << buf->size() << endl;
+				if(buf->size() < data_len) {
+					return 0;
+				}
+				// Entire data is now in the buffer
+				cout << "Got data" << endl;
+				context->chunk->data.reset(new uint8_t[data_len]);
+				memcpy(context->chunk->data.get(), buf->data(), data_len);
+				buf->erase(buf->begin(), buf->begin() + data_len);
+				context->chunk->state = ChunkState::READY;
+				break;
+			case ChunkState::READY:
+				cout << __FUNCTION__ << " state READY" << endl;
+				cout << "We have the entire chunk now!" << endl;
+				break;
+		};
+	}
+}
+
+
+int receive_data(struct callback_context_t* context,
+		uint8_t* bytes, size_t length) {
+
+	cout << __FUNCTION__ << " Got " << length << " bytes" << endl;
+	if (!context) {
+		return -1;
+	}
+	if (context->chunk == nullptr) {
+		context->chunk.reset(new struct chunk);
+	}
+
+	auto buf = &(context->chunk->buf);
+	buf->insert(buf->begin(), bytes, bytes + length);
+	cout << __FUNCTION__ << " Processing buf size: " << buf->size() << endl;
+}
 
 // End a stream on the given connection
 int end_stream(picoquic_cnx_t* cnx, uint64_t stream_id,
@@ -95,39 +198,32 @@ int client_callback(picoquic_cnx_t* cnx,
 		case picoquic_callback_stream_data:
 			cout << "Callback: stream data" << endl;
 			if(length > 0) {
-				std::vector<uint8_t> data(bytes, bytes+length);
-				string sep(8, '+');
-				cout << sep << "Server sent " << length << " bytes" << endl;
-				context->received_so_far += length;
-				if(context->received_so_far >= 8192) {
-					cout << "Got " << context->received_so_far
-						<< " bytes so far. Resetting stream" << endl;
-					picoquic_reset_stream(cnx, stream_id, 0);
-				}
+				receive_data(context, bytes, length);
+				process_data(context);
 			}
 			break;
 		case picoquic_callback_stream_fin:
 			cout << "Callback: stream finished" << endl;
 			if(length > 0) {
-				std::vector<uint8_t> data(bytes, bytes+length);
-				cout << "++++++ Server sent " << length
-					<< " bytes on finish" << endl;
-				context->received_so_far += length;
+				receive_data(context, bytes, length);
+				process_data(context);
 			}
 			context->stream_open = 0;
 			cout << "Reception done after " << context->received_so_far
 				<< " bytes" << endl;
 			cout << "Resetting the stream after it finished." << endl;
 			picoquic_reset_stream(cnx, stream_id, 0);
-			/*
-			// Closing connection immediately
-			printf("Closing connection after stream ended\n");
-			picoquic_close(cnx, 0);
-			*/
 			break;
 		default:
 			cout << "ERROR: unknown callback event " << event << endl;
 	};
+	if(context && context->chunk) {
+		if(context->chunk->state == ChunkState::READY) {
+			cout << __FUNCTION__ <<
+				" Got entire chunk. Resetting stream" << endl;
+			return end_stream(cnx, stream_id, context);
+		}
+	}
 	return 0;
 }
 
