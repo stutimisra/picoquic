@@ -24,6 +24,8 @@ extern "C" {
 #define XCACHE_AID "XCACHE_AID"
 #define TEST_CID "TEST_CID"
 
+#define TEST_CHUNK_SIZE 8192
+
 using namespace std;
 
 static int server_callback(picoquic_cnx_t* connection,
@@ -47,7 +49,7 @@ void print_address(struct sockaddr* address, char* label)
 typedef struct {
 	int stream_open;     // Assuming just one stream for now
 	int received_so_far; // Number of bytes received in that one stream
-	unique_ptr<uint8_t[]> data;
+	vector<uint8_t> data;
 	size_t datalen;
 	size_t sent_offset;
 	NodePtr xid;
@@ -56,37 +58,68 @@ typedef struct {
 int buildDataToSend(callback_context_t* ctx, size_t datalen)
 {
 	//ctx->data = new uint8_t[datalen];
-	ctx->data.reset(new uint8_t[datalen]);
-	memset(ctx->data.get(), 0xf5, datalen);
+	ctx->data.reserve(datalen);
+	for(int i=0; i<datalen; i++) {
+		ctx->data.push_back(i % 256);
+	}
 	return 0;
 }
 
 static int sendData(picoquic_cnx_t* connection,
 		uint64_t stream_id, callback_context_t* ctx)
 {
+	int rc;
 	if (!ctx) {
 		return -1;
 	}
-	if (ctx->data == nullptr) {
-		if (buildDataToSend(ctx, 8192) ) {
+	if (ctx->data.size() == 0) {
+		if (buildDataToSend(ctx, TEST_CHUNK_SIZE) ) {
 			cout << "ERROR creating data buffer to send" << endl;
 			return -1;
 		}
-		ctx->datalen = 8192;
+		ctx->datalen = TEST_CHUNK_SIZE;
 		ctx->sent_offset = 0;
 	}
 
-	if(ctx->sent_offset == 0) {
-		int ret = picoquic_add_to_stream(connection, stream_id,
-				ctx->data.get(), ctx->datalen, 1);
-		//if(picoquic_add_to_stream(connection, stream_id,
-				//ctx->data, ctx->datalen, 1)) {
-		if(ret != 0) {
-			cout << "ERROR: queuing data to send. Returned " <<  ret << endl;
-			return -1;
-		}
-		ctx->sent_offset = ctx->datalen;
+	if(ctx->sent_offset != 0) {
+		return 0;
 	}
+
+	char* datacharstr = reinterpret_cast<char*> (ctx->data.data());
+	string datastr(datacharstr, ctx->data.size());
+
+	// Make a Content Header for given data
+	auto chdr = make_unique<CIDHeader>(datastr, 0);
+	cout << __FUNCTION__ << " Content size: " << chdr->content_len() << endl;
+	string serialized_header = chdr->serialize();
+
+	// Send the header size
+	uint32_t header_len_nbo = htonl(serialized_header.size());
+	if (picoquic_add_to_stream(connection, stream_id,
+			(const uint8_t*) &header_len_nbo, sizeof(header_len_nbo), 0)) {
+		cout << __FUNCTION__ << " ERROR sending hdr size" << endl;
+		return -1;
+	}
+	cout << "Sent hdr size: " << serialized_header.size() << endl;
+	cout << "in NBO: " << header_len_nbo << endl;
+
+	// Send the header
+	if (picoquic_add_to_stream(connection, stream_id,
+			(const uint8_t*) serialized_header.c_str(),
+			serialized_header.size(), 0)) {
+		cout << __FUNCTION__ << " ERROR: sending header" << endl;
+		return -1;
+	}
+	cout << "Sent header of size: " << serialized_header.size() << endl;
+
+	// Send the data
+	if (picoquic_add_to_stream(connection, stream_id,
+			ctx->data.data(), ctx->datalen, 1)) {
+		cout << "ERROR: queuing data to send. Returned " <<  rc << endl;
+		return -1;
+	}
+	cout << "Sent data of size: " << ctx->datalen << endl;
+	ctx->sent_offset = ctx->datalen;
 }
 
 int remove_context(picoquic_cnx_t* connection,
