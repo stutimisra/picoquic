@@ -50,7 +50,7 @@ struct chunk {
 struct callback_context_t {
 	int connected;
 	int stream_open;
-	int received_so_far;
+	int received_so_far = 0;
 	uint64_t last_interaction_time;
 	unique_ptr<struct chunk> chunk;
 };
@@ -140,6 +140,7 @@ int receive_data(struct callback_context_t* context,
 
 	auto buf = &(context->chunk->buf);
 	buf->insert(buf->begin(), bytes, bytes + length);
+	context->received_so_far += length;
 	cout << __FUNCTION__ << " Processing buf size: " << buf->size() << endl;
 }
 
