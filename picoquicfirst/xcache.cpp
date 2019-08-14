@@ -20,7 +20,7 @@ extern "C" {
 #define SERVER_CERT_FILE "certs/cert.pem"
 #define SERVER_KEY_FILE "certs/key.pem"
 
-#define CONFFILE "local.conf"
+#define CONFFILE "xcache.local.conf"
 #define XCACHE_AID "XCACHE_AID"
 #define TEST_CID "TEST_CID"
 
