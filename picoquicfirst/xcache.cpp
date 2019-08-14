@@ -157,6 +157,10 @@ static int server_callback(picoquic_cnx_t* connection,
 		 << " len: " << length
 		 << " event: " << event << endl;
 	callback_context_t* context = (callback_context_t*)ctx;
+	if(!context) {
+		cout << __FUNCTION__ << " called without context." << endl;
+		return -1;
+	}
 
 	switch(event) {
 		case picoquic_callback_ready:
