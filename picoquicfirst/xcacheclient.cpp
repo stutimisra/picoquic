@@ -24,7 +24,7 @@ extern "C" {
 #include "util.h"
 };
 
-#define CONFFILE "local.conf"
+#define CONFFILE "xcacheclient.local.conf"
 
 #define ROUTER_ADDR "ROUTER_ADDR"
 #define ROUTER_PORT "ROUTER_PORT"

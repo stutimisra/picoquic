@@ -21,3 +21,4 @@ Release
 */*.ilk
 *.b
 xcache.local.conf
+xcacheclient.local.conf
