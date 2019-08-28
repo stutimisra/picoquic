@@ -293,6 +293,11 @@ int main()
 	// Server address
 	sockaddr_x server_address;
 	int server_addrlen;
+	auto ad_offset = server_addr.find("AD");
+	server_addr.insert(ad_offset, "( ");
+	server_addr.push_back(' ');
+	server_addr.push_back(')');
+	std::cout << "Server addr as fallback" << server_addr << std::endl;
 	std::string serverdagstr = server_addr + " " + test_cid;
 	Graph serverdag(serverdagstr);
 	std::cout << "Fetching: " << serverdag.dag_string() << std::endl;
