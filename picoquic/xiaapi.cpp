@@ -179,6 +179,18 @@ void cidToLocalDAG(const char* cid, GraphPtr& addr)
 	xidToLocalDAG(cid, addr);
 }
 
+auto buildRouteRemoveCommandForXID(std::string& xidtype,
+		const char* xid) -> std::string
+{
+	auto conf = LocalConfig::get_instance(CONFFILE);
+	auto router_iface = conf.get(ROUTER_IFACE);
+	std::ostringstream cmd;
+	std::string xidstr(xid);
+	cmd << "./bin/xroute -r " << xidtype << "," << xidstr;
+	std::cout << "Route remove cmd to router: " << cmd.str() << std::endl;
+	return cmd.str();
+}
+
 auto buildRouteCommandForXID(std::string& xidtype,
 		const char* xid,
 		const struct sockaddr_in& bound_addr) -> std::string
@@ -206,6 +218,12 @@ auto buildRouteCommandForCID(const char* cid,
 	return buildRouteCommandForXID(xidtype, cid, bound_addr);
 }
 
+auto buildRouteRemoveCommandForCID(const char* cid) -> std::string
+{
+	std::string xidtype("CID");
+	return buildRouteRemoveCommandForXID(xidtype, cid);
+}
+
 auto buildRouteCommandForAID(const char* aid,
 		const struct sockaddr_in& bound_addr) -> std::string
 {
@@ -213,6 +231,11 @@ auto buildRouteCommandForAID(const char* aid,
 	return buildRouteCommandForXID(xidtype, aid, bound_addr);
 }
 
+auto buildRouteRemoveCommandForAID(const char* aid) -> std::string
+{
+	std::string xidtype("AID");
+	return buildRouteRemoveCommandForXID(xidtype, aid);
+}
 
 int picoquic_xia_serve_cid(int xcachesockfd, const char* cid,
 		GraphPtr& cid_addr)
@@ -231,6 +254,26 @@ int picoquic_xia_serve_cid(int xcachesockfd, const char* cid,
 
 	if(_send_server_cmd(cmd)) {
 		std::cout << "ERROR configuring route to " << cid << std::endl;
+		return -1;
+	}
+	return 0;
+}
+
+int picoquic_xia_unserve_cid(const char* cid)
+{
+	std::string cmd = buildRouteRemoveCommandForCID(cid);
+	if(_send_server_cmd(cmd)) {
+		std::cout << "ERROR removing route for " << cid << std::endl;
+		return -1;
+	}
+	return 0;
+}
+
+int picoquic_xia_unserve_aid(const char* aid)
+{
+	std::string cmd = buildRouteRemoveCommandForAID(aid);
+	if(_send_server_cmd(cmd)) {
+		std::cout << "ERROR removing route for " << aid << std::endl;
 		return -1;
 	}
 	return 0;

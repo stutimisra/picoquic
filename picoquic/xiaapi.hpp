@@ -57,4 +57,6 @@ int picoquic_xia_recvfrom(int sockfd, sockaddr_x* addr_from,
 int picoquic_xia_serve_cid(int xcachesockfd, const char* cid,
 		GraphPtr& cid_addr);
 
+int picoquic_xia_unserve_cid(const char* cid);
+int picoquic_xia_unserve_aid(const char* aid);
 #endif //PICOQUIC_XIAAPI_H

@@ -49,6 +49,7 @@ set(LOCAL_CONFIG_FILES
 
 set(PICOQUIC_XIA_API_FILES
 	picoquic/xiaapi.cpp
+	picoquic/quicxiasock.cpp
 )
 
 set(PICOQUIC_LIBRARY_FILES
