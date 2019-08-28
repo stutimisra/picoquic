@@ -2,17 +2,20 @@
 
 #include <string>
 #include <memory>
+#include <atomic>
+#include <iostream>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <iostream>
+#include <signal.h>
 
 extern "C" {
 #include "picoquic.h"
 #include "picosocks.h"
 #include "util.h"
 };
+#include "quicxiasock.hpp"
 #include "xiaapi.hpp"
 #include "dagaddr.hpp"
 #include "cid_header.h"
@@ -27,6 +30,14 @@ extern "C" {
 #define TEST_CHUNK_SIZE 8192
 
 using namespace std;
+
+// Cleanup on interrupt
+atomic<bool> stop(false);
+
+void sigint_handler(int) {
+	stop.store(true);
+}
+
 
 static int server_callback(picoquic_cnx_t* connection,
 		uint64_t stream_id, uint8_t* bytes, size_t length,
@@ -245,6 +256,13 @@ int main()
 	time_t ttl = 0;
 	auto chdr = new CIDHeader(dummydata, ttl);
 
+	// Set up signal handler for interrupt to allow cleanup
+	struct sigaction action;
+	memset(&action, 0, sizeof(action));
+	action.sa_handler = sigint_handler;
+	sigfillset(&action.sa_mask);
+	sigaction(SIGINT, &action, NULL);
+
 	auto conf = LocalConfig::get_instance(CONFFILE);
 	auto xcache_aid = conf.get(XCACHE_AID);
 	auto test_cid = conf.get(TEST_CID);
@@ -258,6 +276,9 @@ int main()
 	}
 	
 	// We give a fictitious AID for now, and get a dag in my_addr
+	auto server_socket = make_unique<QUICXIASocket>(xcache_aid);
+	dummy_cid_addr = server_socket->serveCID(test_cid);
+	/*
 	sockfd = picoquic_xia_open_server_socket(xcache_aid.c_str(), my_addr);
 	if(sockfd == -1) {
 		printf("ERROR creating xia server socket\n");
@@ -272,6 +293,7 @@ int main()
 		printf("ERROR setting up routes for our dummy CID\n");
 		return -1;
 	}
+	*/
 
 	// Get the server certificate
 	char server_cert_file[512];
@@ -334,6 +356,10 @@ int main()
 		if(bytes_recv < 0) {
 			printf("Server: ERROR selecting on client requests\n");
 			goto server_done;
+		}
+		if(stop.load()) {
+			cout << "Interrupted. Cleaning up" << endl;
+			break;
 		}
 
 		uint64_t loop_time;
@@ -437,9 +463,12 @@ server_done:
 		case 2: // cleanup QUIC instance
 			picoquic_free(server);
 		case 1: // cleanup server sockets
+			/*
 			if(sockfd != -1) {
 				close(sockfd);
 			}
+			*/
+			break;
 	};
 	return retval;
 }
