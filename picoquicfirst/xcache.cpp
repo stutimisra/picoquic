@@ -278,6 +278,7 @@ int main()
 	// We give a fictitious AID for now, and get a dag in my_addr
 	auto server_socket = make_unique<QUICXIASocket>(xcache_aid);
 	dummy_cid_addr = server_socket->serveCID(test_cid);
+	sockfd = server_socket->fd();
 	/*
 	sockfd = picoquic_xia_open_server_socket(xcache_aid.c_str(), my_addr);
 	if(sockfd == -1) {

@@ -46,3 +46,7 @@ bool QUICXIASocket::unserveCID(const std::string& cid) {
 	}
 	return true;
 }
+
+int QUICXIASocket::fd() {
+	return sockfd;
+}

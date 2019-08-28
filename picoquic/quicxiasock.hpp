@@ -13,6 +13,7 @@ class QUICXIASocket {
 		~QUICXIASocket();
 		GraphPtr serveCID(const std::string& cid);
 		bool unserveCID(const std::string& cid);
+		int fd();
 	private:
 		std::string _aid;
 		std::unordered_set<std::string> cids_served;
