@@ -68,7 +68,6 @@ typedef struct {
 
 int buildDataToSend(callback_context_t* ctx, size_t datalen)
 {
-	//ctx->data = new uint8_t[datalen];
 	ctx->data.reserve(datalen);
 	for(int i=0; i<datalen; i++) {
 		ctx->data.push_back(i % 256);
@@ -279,22 +278,6 @@ int main()
 	auto server_socket = make_unique<QUICXIASocket>(xcache_aid);
 	dummy_cid_addr = server_socket->serveCID(test_cid);
 	sockfd = server_socket->fd();
-	/*
-	sockfd = picoquic_xia_open_server_socket(xcache_aid.c_str(), my_addr);
-	if(sockfd == -1) {
-		printf("ERROR creating xia server socket\n");
-		return -1;
-	} else {
-		printf("SUCCESS creating xia server socket\n");
-	}
-	state = 1; // server socket now exists
-
-	// Ask router to send requests for our dummy CID to us
-	if(picoquic_xia_serve_cid(sockfd, test_cid.c_str(), dummy_cid_addr)) {
-		printf("ERROR setting up routes for our dummy CID\n");
-		return -1;
-	}
-	*/
 
 	// Get the server certificate
 	char server_cert_file[512];
@@ -371,17 +354,11 @@ int main()
 			Graph our_addr(&addr_local);
 			printf("Server: sender: %s\n", sender_addr.dag_string().c_str());
 			printf("Server: us: %s\n", our_addr.dag_string().c_str());
-			//char label[] = "Server: client addr:";
-			//print_address((struct sockaddr*)&addr_from, label);
 			(void)picoquic_incoming_packet(server, buffer,
 					(size_t)bytes_recv, (struct sockaddr*)&addr_from,
 					(struct sockaddr*)&addr_local, to_interface,
 					received_ecn,
 					current_time);
-			//printf("Server: processed incoming packet through QUIC\n");
-			//print_address((struct sockaddr*)&addr_from, label);
-			//char label2[] = "Server: server addr:";
-			//print_address((struct sockaddr*)&addr_local, label2);
 			// If we don't have a list of server connections, get it
 			if(newest_cnx == NULL
 					|| newest_cnx != picoquic_get_first_cnx(server)) {
@@ -463,12 +440,6 @@ server_done:
 			fclose(logfile);
 		case 2: // cleanup QUIC instance
 			picoquic_free(server);
-		case 1: // cleanup server sockets
-			/*
-			if(sockfd != -1) {
-				close(sockfd);
-			}
-			*/
 			break;
 	};
 	return retval;
