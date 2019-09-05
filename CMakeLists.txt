@@ -52,6 +52,10 @@ set(PICOQUIC_XIA_API_FILES
 	picoquic/quicxiasock.cpp
 )
 
+set(PICOQUIC_XCACHE_FILES
+	xcache/xcache.cpp
+)
+
 set(PICOQUIC_LIBRARY_FILES
     picoquic/cubic.c
 	picoquic/democlient.c
@@ -195,7 +199,7 @@ target_link_libraries(picoquicserverxia picoquic-core picoquicxia
 )
 include_directories(picoquicserverxia ${XIADIR}/api/include)
 
-add_executable(xcache picoquicfirst/xcache.cpp)
+add_executable(xcache ${PICOQUIC_XCACHE_FILES})
 target_link_libraries(xcache picoquic-core picoquicxia
 	localconfig
 	${XCACHEHDR_LIBRARY}
