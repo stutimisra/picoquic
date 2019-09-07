@@ -38,7 +38,7 @@ LocalConfig::LocalConfig(const std::string& confFile)
 	std::string line;
 	while(std::getline(configuration, line)) {
 		ltrim(line);
-		if (line[0] == '#') {
+		if (line[0] == '#' || line.empty()) {
 			continue;
 		}
 		std::stringstream ss(line);
