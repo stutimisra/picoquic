@@ -19,6 +19,7 @@ extern "C" {
 #include "xiaapi.hpp"
 #include "dagaddr.hpp"
 #include "cid_header.h"
+#include "xcache_quic.h"
 
 #define SERVER_CERT_FILE "certs/cert.pem"
 #define SERVER_KEY_FILE "certs/key.pem"
@@ -233,10 +234,7 @@ static int server_callback(picoquic_cnx_t* connection,
 int main()
 {
 	int retval = -1;
-	int state = 0;
-	FILE* logfile = NULL;
 	uint64_t current_time;
-	picoquic_quic_t* server = NULL;
 	int64_t delay_max = 10000000;      // max wait 10 sec.
 	sockaddr_x addr_from;
 	sockaddr_x addr_local;
@@ -248,9 +246,6 @@ int main()
 	uint8_t send_buffer[1536];
 	size_t send_length = 0;
 	unsigned char received_ecn;
-	GraphPtr my_addr;
-	GraphPtr dummy_cid_addr;
-	int sockfd = -1;
 	std::string dummydata("Hello World!");
 	time_t ttl = 0;
 	auto chdr = new CIDHeader(dummydata, ttl);
@@ -276,62 +271,14 @@ int main()
 	
 	// We give a fictitious AID for now, and get a dag in my_addr
 	auto server_socket = make_unique<QUICXIASocket>(xcache_aid);
-	dummy_cid_addr = server_socket->serveCID(test_cid);
-	sockfd = server_socket->fd();
+	GraphPtr dummy_cid_addr = server_socket->serveCID(test_cid);
+	int sockfd = server_socket->fd();
 
-	// Get the server certificate
-	char server_cert_file[512];
-	if(picoquic_get_input_path(server_cert_file, sizeof(server_cert_file),
-				NULL, SERVER_CERT_FILE)) {
-		printf("ERROR finding server certificate\n");
-		goto server_done;
-	}
-
-	// Get the server crypto key
-	char server_key_file[512];
-	if(picoquic_get_input_path(server_key_file, sizeof(server_key_file),
-				NULL, SERVER_KEY_FILE)) {
-		printf("ERROR finding server key file\n");
-		goto server_done;
-	}
-
-	// Create QUIC instance
-	current_time = picoquic_current_time();
-	server = picoquic_create(8, // number of connections
-			server_cert_file,
-			server_key_file,
-			NULL,                // cert_root_file_name
-			NULL,                // Appl. Layer Protocol Negotiation (ALPN)
-			server_callback,     // Stream data callback
-			NULL,                // Stream data context - assigned in callback
-			NULL, // Connection ID callback
-			NULL,                // Connection ID callback context
-			NULL,                // reset seed
-			current_time,
-			NULL,                // p_simulated_time
-			NULL,                // ticket_file_name
-			NULL,                // ticket_encryption_key
-			0                    // ticket encryption key length
-			);
-	if(server == NULL) {
-		printf("ERROR creating QUIC instance for server\n");
-		goto server_done;
-	}
-	state = 2;
-
-	// Open a log file
-	logfile = fopen("server.log", "w");
-	if(logfile == NULL) {
-		printf("ERROR creating log file\n");
-		goto server_done;
-	}
-	state = 3;
-	PICOQUIC_SET_LOG(server, logfile);
+	XcacheQUIC server;
 
 	// Wait for packets
 	while(1) {
-		int64_t delta_t = picoquic_get_next_wake_delay(server, current_time,
-				delay_max);
+		int64_t delta_t = server.nextWakeDelay(current_time, delay_max);
 
 		bytes_recv = picoquic_xia_select(sockfd, &addr_from,
 				&addr_local, buffer, sizeof(buffer),
@@ -354,16 +301,16 @@ int main()
 			Graph our_addr(&addr_local);
 			printf("Server: sender: %s\n", sender_addr.dag_string().c_str());
 			printf("Server: us: %s\n", our_addr.dag_string().c_str());
-			(void)picoquic_incoming_packet(server, buffer,
+			(void)server.incomingPacket(buffer,
 					(size_t)bytes_recv, (struct sockaddr*)&addr_from,
 					(struct sockaddr*)&addr_local, to_interface,
 					received_ecn,
 					current_time);
 			// If we don't have a list of server connections, get it
 			if(newest_cnx == NULL
-					|| newest_cnx != picoquic_get_first_cnx(server)) {
+					|| newest_cnx != server.firstConnection()) {
 				printf("Server: New connection\n");
-				newest_cnx = picoquic_get_first_cnx(server);
+				newest_cnx = server.firstConnection();
 				if(newest_cnx == NULL) {
 					printf("ERROR: No connection found!\n");
 					goto server_done;
@@ -381,7 +328,7 @@ int main()
 
 		// Send stateless packets
 		picoquic_stateless_packet_t* sp;
-		while((sp = picoquic_dequeue_stateless_packet(server)) != NULL) {
+		while((sp = server.dequeueStatelessPacket()) !=NULL) {
 			printf("Server: found a stateless packet to send\n");
 			if(sp->addr_to.sx_family != AF_XIA) {
 				std::cout << "ERROR: Non XIA stateless packet" << std::endl;
@@ -395,8 +342,8 @@ int main()
 		}
 
 		// Send outgoing packets for all connections
-		while((next_connection = picoquic_get_earliest_cnx_to_wake(server,
-					loop_time)) != NULL) {
+		while((next_connection = server.earliestConnection(loop_time))
+				!= NULL) {
 			int peer_addr_len = sizeof(sockaddr_x);
 			int local_addr_len = sizeof(sockaddr_x);
 			// Ask QUIC to prepare a packet to send out on this connection
@@ -435,12 +382,5 @@ int main()
 	retval = 0;
 
 server_done:
-	switch(state) {
-		case 3: // close the log file
-			fclose(logfile);
-		case 2: // cleanup QUIC instance
-			picoquic_free(server);
-			break;
-	};
 	return retval;
 }

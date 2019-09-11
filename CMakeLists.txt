@@ -53,7 +53,13 @@ set(PICOQUIC_XIA_API_FILES
 )
 
 set(PICOQUIC_XCACHE_FILES
-	xcache/xcache.cpp
+	xcache/xcache.cc
+	xcache/xcache_thread_pool.cc
+	xcache/xcache_quic.cc
+
+	xcache/xcache_push_request.cc
+	xcache/xcache_receive_request.cc
+	xcache/xcache_irq_table.cc
 )
 
 set(PICOQUIC_LIBRARY_FILES
@@ -178,6 +184,7 @@ include_directories(picoquicclientxia ${XIADIR}/api/include)
 
 set(XCACHEHDR_LIBRARY ${XIADIR}/api/lib/libxcachehdr.so)
 set(XCACHE_LIBRARY ${XIADIR}/api/lib/libxcache.so)
+set(XSOCKET_LIBRARY ${XIADIR}/api/lib/libXsocket.so)
 
 add_executable(xcacheclient picoquicfirst/xcacheclient.cpp)
 target_link_libraries(xcacheclient picoquic-core picoquicxia
@@ -199,6 +206,7 @@ target_link_libraries(picoquicserverxia picoquic-core picoquicxia
 )
 include_directories(picoquicserverxia ${XIADIR}/api/include)
 
+find_package( Threads )
 add_executable(xcache ${PICOQUIC_XCACHE_FILES})
 target_link_libraries(xcache picoquic-core picoquicxia
 	localconfig
@@ -206,9 +214,13 @@ target_link_libraries(xcache picoquic-core picoquicxia
 	${XCACHE_LIBRARY}
 	${PTLS_LIBRARIES}
 	${OPENSSL_LIBRARIES}
+	${PROTOBUF_LIBRARY}
+	${CMAKE_THREAD_LIBS_INIT}
+	${XSOCKET_LIBRARY}
 	${CMAKE_DL_LIBS}
 )
 include_directories(xcache ${XIADIR}/api/xcache/headers)
+include_directories(xcache ${XIADIR}/api/xcache)
 
 add_executable(picoquic_ct picoquic_t/picoquic_t.c
  ${PICOQUIC_TEST_LIBRARY_FILES} )
