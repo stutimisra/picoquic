@@ -231,6 +231,14 @@ static int server_callback(picoquic_cnx_t* connection,
 	return 0;
 }
 
+void installSIGINTHandler() {
+	struct sigaction action;
+	memset(&action, 0, sizeof(action));
+	action.sa_handler = sigint_handler;
+	sigfillset(&action.sa_mask);
+	sigaction(SIGINT, &action, NULL);
+}
+
 int main()
 {
 	int retval = -1;
@@ -250,12 +258,7 @@ int main()
 	time_t ttl = 0;
 	auto chdr = new CIDHeader(dummydata, ttl);
 
-	// Set up signal handler for interrupt to allow cleanup
-	struct sigaction action;
-	memset(&action, 0, sizeof(action));
-	action.sa_handler = sigint_handler;
-	sigfillset(&action.sa_mask);
-	sigaction(SIGINT, &action, NULL);
+	installSIGINTHandler();
 
 	auto conf = LocalConfig::get_instance(CONFFILE);
 	auto xcache_aid = conf.get(XCACHE_AID);
