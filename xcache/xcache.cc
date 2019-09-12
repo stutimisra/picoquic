@@ -242,24 +242,10 @@ void installSIGINTHandler() {
 int main()
 {
 	int retval = -1;
-	uint64_t current_time;
-	int64_t delay_max = 10000000;      // max wait 10 sec.
-	sockaddr_x addr_from;
-	sockaddr_x addr_local;
-	unsigned long to_interface = 0;    // our interface
-	uint8_t buffer[1536];              // buffer to receive packets
-	int bytes_recv;                    // size of packet received
-	picoquic_cnx_t* newest_cnx = NULL;
-	picoquic_cnx_t* next_connection = NULL;
-	uint8_t send_buffer[1536];
-	size_t send_length = 0;
-	unsigned char received_ecn;
-	std::string dummydata("Hello World!");
-	time_t ttl = 0;
-	auto chdr = new CIDHeader(dummydata, ttl);
 
 	installSIGINTHandler();
 
+	// Get XIDs from local config file
 	auto conf = LocalConfig::get_instance(CONFFILE);
 	auto xcache_aid = conf.get(XCACHE_AID);
 	auto test_cid = conf.get(TEST_CID);
@@ -277,11 +263,25 @@ int main()
 	GraphPtr dummy_cid_addr = server_socket->serveCID(test_cid);
 	int sockfd = server_socket->fd();
 
-	XcacheQUIC server;
+	XcacheQUIC server(server_callback);
 
 	// Wait for packets
-	while(1) {
-		int64_t delta_t = server.nextWakeDelay(current_time, delay_max);
+	int bytes_recv;                    // size of packet received
+	size_t send_length = 0;
+	unsigned char received_ecn;
+	picoquic_cnx_t* newest_cnx = NULL;
+	picoquic_cnx_t* next_connection = NULL;
+	uint8_t buffer[1536];              // buffer to receive packets
+	uint8_t send_buffer[1536];
+	uint64_t current_time;
+	int64_t delay_max = 10000000;      // max wait 10 sec.
+	unsigned long to_interface = 0;    // our interface
+	sockaddr_x addr_from;
+	sockaddr_x addr_local;
+	int64_t delta_t;
+
+	while (true) {
+		delta_t = server.nextWakeDelay(current_time, delay_max);
 
 		bytes_recv = picoquic_xia_select(sockfd, &addr_from,
 				&addr_local, buffer, sizeof(buffer),

@@ -13,7 +13,7 @@ extern "C" {
 #include <iostream>
 #include <memory>
 
-XcacheQUIC::XcacheQUIC() {
+XcacheQUIC::XcacheQUIC(picoquic_stream_data_cb_fn callback) {
 	server_cert_file = serverCertFile();
 	server_key_file = serverKeyFile();
 	picoquic_quic_t* s = picoquic_create(8, // number of connections
@@ -66,12 +66,6 @@ picoquic_stateless_packet_t* XcacheQUIC::dequeueStatelessPacket() {
 
 picoquic_cnx_t* XcacheQUIC::earliestConnection(uint64_t max_wake_time) {
 	return picoquic_get_earliest_cnx_to_wake(server.get(), max_wake_time);
-}
-
-int XcacheQUIC::callback(picoquic_cnx_t* connection,
-		uint64_t stream_id, uint8_t* bytes, size_t length,
-		picoquic_call_back_event_t event, void* ctx) {
-	return 0;
 }
 
 std::string XcacheQUIC::serverCertFile() {

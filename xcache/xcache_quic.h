@@ -26,7 +26,7 @@ using FilePtr = std::unique_ptr<FILE, decltype(&fclose)>;
 
 class XcacheQUIC {
 	public:
-		XcacheQUIC();
+		XcacheQUIC(picoquic_stream_data_cb_fn callback);
 		int64_t nextWakeDelay(uint64_t current_time, int64_t delay_max);
 		int incomingPacket(uint8_t* bytes, uint32_t packet_length,
 				struct sockaddr* addr_from, struct sockaddr* addr_to,
@@ -37,9 +37,6 @@ class XcacheQUIC {
 		picoquic_cnx_t* earliestConnection(uint64_t max_wake_time);
 
 	private:
-		static int callback(picoquic_cnx_t* connection,
-				uint64_t stream_id, uint8_t* bytes, size_t length,
-				picoquic_call_back_event_t event, void*ctx);
 		void init();
 		std::string serverCertFile();
 		std::string serverKeyFile();
@@ -47,7 +44,6 @@ class XcacheQUIC {
 
 		std::string server_key_file;
 		std::string server_cert_file;
-		//picoquic_quic_t* server = {nullptr};
 		PicoquicPtr server = PicoquicPtr(nullptr, &picoquic_free);
 		FilePtr logfile = FilePtr(nullptr, &fclose);
 		uint64_t current_time;
