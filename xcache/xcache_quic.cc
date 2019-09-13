@@ -16,6 +16,7 @@ extern "C" {
 XcacheQUIC::XcacheQUIC(picoquic_stream_data_cb_fn callback) {
 	server_cert_file = serverCertFile();
 	server_key_file = serverKeyFile();
+	current_time = picoquic_current_time();
 	picoquic_quic_t* s = picoquic_create(8, // number of connections
 			server_cert_file.c_str(),
 			server_key_file.c_str(),
@@ -26,7 +27,7 @@ XcacheQUIC::XcacheQUIC(picoquic_stream_data_cb_fn callback) {
 			NULL,               // Connection ID callback
 			NULL,               // Connection ID callback context
 			NULL,               // reset seed
-			picoquic_current_time(),
+			current_time,
 			NULL,               // p_simulated time
 			NULL,               // ticket_file_name
 			NULL,               // ticket_encryption_key
@@ -43,17 +44,24 @@ XcacheQUIC::XcacheQUIC(picoquic_stream_data_cb_fn callback) {
 	PICOQUIC_SET_LOG(server.get(), logfile.get());
 }
 
-int64_t XcacheQUIC::nextWakeDelay(uint64_t current_time, int64_t delay_max) {
+void XcacheQUIC::updateTime() {
+	current_time = picoquic_current_time();
+}
+
+int64_t XcacheQUIC::nextWakeDelay(int64_t delay_max) {
 	return picoquic_get_next_wake_delay(server.get(),
 			current_time, delay_max);
 }
 
 int XcacheQUIC::incomingPacket(uint8_t* bytes, uint32_t packet_length,
 	  struct sockaddr* addr_from, struct sockaddr* addr_to,
-	  int if_index_to, unsigned char received_ecn,
-	  uint64_t current_time) {
+	  int if_index_to, unsigned char received_ecn) {
 	return picoquic_incoming_packet(server.get(), bytes, packet_length,
 			addr_from, addr_to, if_index_to, received_ecn, current_time);
+}
+
+uint64_t XcacheQUIC::currentTime() {
+	return current_time;
 }
 
 picoquic_cnx_t* XcacheQUIC::firstConnection() {
@@ -64,8 +72,8 @@ picoquic_stateless_packet_t* XcacheQUIC::dequeueStatelessPacket() {
 	return picoquic_dequeue_stateless_packet(server.get());
 }
 
-picoquic_cnx_t* XcacheQUIC::earliestConnection(uint64_t max_wake_time) {
-	return picoquic_get_earliest_cnx_to_wake(server.get(), max_wake_time);
+picoquic_cnx_t* XcacheQUIC::earliestConnection() {
+	return picoquic_get_earliest_cnx_to_wake(server.get(), current_time);
 }
 
 std::string XcacheQUIC::serverCertFile() {

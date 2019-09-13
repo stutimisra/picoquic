@@ -27,14 +27,15 @@ using FilePtr = std::unique_ptr<FILE, decltype(&fclose)>;
 class XcacheQUIC {
 	public:
 		XcacheQUIC(picoquic_stream_data_cb_fn callback);
-		int64_t nextWakeDelay(uint64_t current_time, int64_t delay_max);
+		void updateTime();
+		int64_t nextWakeDelay(int64_t delay_max);
 		int incomingPacket(uint8_t* bytes, uint32_t packet_length,
 				struct sockaddr* addr_from, struct sockaddr* addr_to,
-				int if_index_to, unsigned char received_ecn,
-				uint64_t current_time);
+				int if_index_to, unsigned char received_ecn);
+		uint64_t currentTime();
 		picoquic_cnx_t* firstConnection();
 		picoquic_stateless_packet_t* dequeueStatelessPacket();
-		picoquic_cnx_t* earliestConnection(uint64_t max_wake_time);
+		picoquic_cnx_t* earliestConnection();
 
 	private:
 		void init();
