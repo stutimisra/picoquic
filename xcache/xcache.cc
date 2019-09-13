@@ -35,10 +35,10 @@ using namespace std;
 // Cleanup on interrupt
 atomic<bool> stop(false);
 
+// Simply flip the 'stop' switch so main loop will exit and clean up
 void sigint_handler(int) {
 	stop.store(true);
 }
-
 
 static int server_callback(picoquic_cnx_t* connection,
 		uint64_t stream_id, uint8_t* bytes, size_t length,
@@ -61,7 +61,7 @@ void print_address(struct sockaddr* address, char* label)
 typedef struct {
 	int stream_open;     // Assuming just one stream for now
 	int received_so_far; // Number of bytes received in that one stream
-	vector<uint8_t> data;
+	vector<uint8_t> data; // Data to send. Would be a chunk in future
 	size_t datalen;
 	size_t sent_offset;
 	NodePtr xid;
@@ -76,6 +76,7 @@ int buildDataToSend(callback_context_t* ctx, size_t datalen)
 	return 0;
 }
 
+// Send a chunk
 static int sendData(picoquic_cnx_t* connection,
 		uint64_t stream_id, callback_context_t* ctx)
 {
@@ -83,6 +84,8 @@ static int sendData(picoquic_cnx_t* connection,
 	if (!ctx) {
 		return -1;
 	}
+
+	// Fill in random data as chunk contents
 	if (ctx->data.size() == 0) {
 		if (buildDataToSend(ctx, TEST_CHUNK_SIZE) ) {
 			cout << "ERROR creating data buffer to send" << endl;
@@ -143,6 +146,7 @@ int remove_context(picoquic_cnx_t* connection,
 	return 0;
 }
 
+// Handle data from client
 int process_data(callback_context_t* context, uint8_t* bytes, size_t length)
 {
 	// Missing context
@@ -155,11 +159,14 @@ int process_data(callback_context_t* context, uint8_t* bytes, size_t length)
 	if(length <= 0) {
 		return 0;
 	}
+
+	// Client simply sends a hello message as a placeholder
 	string data((const char*)bytes, length);
 	cout << __FUNCTION__ << " Client sent " << data.c_str() << endl;
 	context->received_so_far += length;
 }
 
+// QUIC calls us here when there is stream activity
 static int server_callback(picoquic_cnx_t* connection,
 		uint64_t stream_id, uint8_t* bytes, size_t length,
 		picoquic_call_back_event_t event, void* ctx)
