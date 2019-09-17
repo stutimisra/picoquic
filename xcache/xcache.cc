@@ -68,25 +68,14 @@ int main()
 	}
 	
 	// We give a fictitious AID for now, and get a dag in my_addr
-	auto server_socket = make_unique<QUICXIASocket>(xcache_aid);
-	GraphPtr dummy_cid_addr = server_socket->serveCID(test_cid);
-	int sockfd = server_socket->fd();
+	auto xcache_socket = make_unique<QUICXIASocket>(xcache_aid);
+	GraphPtr dummy_cid_addr = xcache_socket->serveCID(test_cid);
+	int sockfd = xcache_socket->fd();
 
 	XcacheQUICServer server;
 
 	// Wait for packets
-	int bytes_recv;                    // size of packet received
-	size_t send_length = 0;
-	unsigned char received_ecn;
-	picoquic_cnx_t* newest_cnx = NULL;
-	picoquic_cnx_t* next_connection = NULL;
-	uint8_t buffer[1536];              // buffer to receive packets
-	uint8_t send_buffer[1536];
-	uint64_t current_time;
 	int64_t delay_max = 10000000;      // max wait 10 sec.
-	unsigned long to_interface = 0;    // our interface
-	sockaddr_x addr_from;
-	sockaddr_x addr_local;
 	int64_t delta_t;
 
 	while (true) {
@@ -94,7 +83,6 @@ int main()
 
 		fd_set readfds;
 		struct timeval tv;
-		int bytes_recv = 0;
 		int ret_select;
 
 		FD_ZERO(&readfds);
@@ -113,7 +101,6 @@ int main()
 		}
 		ret_select = select(sockfd+1, &readfds, NULL, NULL, &tv);
 		if(ret_select < 0) {
-			bytes_recv = -1;
 			cout << "ERROR: select on xiaquic sock: " << ret_select << endl;
 		} else if(ret_select > 0) {
 			if(FD_ISSET(sockfd, &readfds)) {
