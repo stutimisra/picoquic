@@ -20,6 +20,7 @@ extern "C" {
 #include "dagaddr.hpp"
 #include "cid_header.h"
 #include "xcache_quic_server.h"
+#include "fd_manager.h"
 
 #define SERVER_CERT_FILE "certs/cert.pem"
 #define SERVER_KEY_FILE "certs/key.pem"
@@ -70,7 +71,7 @@ int main()
 	// We give a fictitious AID for now, and get a dag in my_addr
 	auto xcache_socket = make_unique<QUICXIASocket>(xcache_aid);
 	GraphPtr dummy_cid_addr = xcache_socket->serveCID(test_cid);
-	int sockfd = xcache_socket->fd();
+	int xcache_sockfd = xcache_socket->fd();
 
 	XcacheQUICServer server;
 
@@ -78,42 +79,33 @@ int main()
 	int64_t delay_max = 10000000;      // max wait 10 sec.
 	int64_t delta_t;
 
+	FdManager fd_mgr;
+	fd_mgr.addDescriptor(xcache_sockfd);
+
 	while (true) {
 		delta_t = server.nextWakeDelay(delay_max);
-
-		fd_set readfds;
-		struct timeval tv;
-		int ret_select;
-
-		FD_ZERO(&readfds);
-		FD_SET(sockfd, &readfds);
-		if(delta_t <= 0) {
-			tv.tv_sec = 0;
-			tv.tv_usec = 0;
-		} else {
-			if(delta_t > 10000000) {
-				tv.tv_sec = (long)10;
-				tv.tv_usec = 0;
-			} else {
-				tv.tv_sec = (long)(delta_t / 1000000);
-				tv.tv_usec = (long)(delta_t % 1000000);
-			}
+		int ret = fd_mgr.waitForData(delta_t);
+		if (ret < 0) {
+			std::cout << "ERROR polling for data" << endl;
 		}
-		ret_select = select(sockfd+1, &readfds, NULL, NULL, &tv);
-		if(ret_select < 0) {
-			cout << "ERROR: select on xiaquic sock: " << ret_select << endl;
-		} else if(ret_select > 0) {
-			if(FD_ISSET(sockfd, &readfds)) {
-				server.incomingPacket(sockfd);
+		if (ret == 0) {
+			// timed out
+			continue;
+		}
+
+		auto ready_fds = fd_mgr.readyDescriptors();
+		for (auto fd : ready_fds) {
+			if (fd == xcache_sockfd) {
+				server.incomingPacket(xcache_sockfd);
 			}
 		}
 
-		if(stop.load()) {
-			cout << "Interrupted. Cleaning up" << endl;
+		if (stop.load()) {
+			std::cout << "Interrupted. Cleaning up." << std::endl;
 			break;
 		}
-		server.incomingPacket(sockfd);
 	}
+
 	// Server ended cleanly, change return code to success
 	retval = 0;
 
