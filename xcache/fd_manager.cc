@@ -31,7 +31,7 @@ int FdManager::removeDescriptor(int sockfd) {
 	return 0;
 }
 
-int FdManager::waitForData(int64_t delta_t) {
+int FdManager::waitForData(int64_t delta_t, std::vector<int>& ready_fds) {
 	struct timespec timeout;
 	timeout.tv_sec = 0;
 	timeout.tv_nsec = 0;
@@ -49,15 +49,19 @@ int FdManager::waitForData(int64_t delta_t) {
 		}
 	}
 
-	return ppoll(fds.data(), fds.size(), &timeout, NULL);
-}
+	std::vector<struct pollfd> fds_copy;
+	{
+		std::lock_guard<std::mutex> guard(fds_lock);
+		fds_copy = fds;
+	}
 
-auto FdManager::readyDescriptors() -> std::vector<int> {
-	std::vector<int> ready_fds;
-	for (auto fd : fds) {
-		if (fd.revents && POLLIN) {
-			ready_fds.push_back(fd.fd);
+	int ret = ppoll(fds_copy.data(), fds_copy.size(), &timeout, NULL);
+	if (ret > 0) {
+		for (auto fd : fds_copy) {
+			if (fd.revents && POLLIN) {
+				ready_fds.push_back(fd.fd);
+			}
 		}
 	}
-	return ready_fds;
+	return ret;
 }

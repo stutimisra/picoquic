@@ -13,8 +13,7 @@ public:
 	FdManager();
 	int addDescriptor(int sockfd);
 	int removeDescriptor(int sockfd);
-	int waitForData(int64_t delta_t);
-	auto readyDescriptors() -> std::vector<int>;
+	int waitForData(int64_t delta_t, std::vector<int>& ready_fds);
 private:
 	nfds_t nfds;
 	struct timespec timeout;

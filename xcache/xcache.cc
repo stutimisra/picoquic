@@ -84,7 +84,8 @@ int main()
 
 	while (true) {
 		delta_t = server.nextWakeDelay(delay_max);
-		int ret = fd_mgr.waitForData(delta_t);
+		std::vector<int> ready_fds;
+		int ret = fd_mgr.waitForData(delta_t, ready_fds);
 		if (ret < 0) {
 			std::cout << "ERROR polling for data" << endl;
 		}
@@ -93,7 +94,6 @@ int main()
 			continue;
 		}
 
-		auto ready_fds = fd_mgr.readyDescriptors();
 		for (auto fd : ready_fds) {
 			if (fd == xcache_sockfd) {
 				server.incomingPacket(xcache_sockfd);
