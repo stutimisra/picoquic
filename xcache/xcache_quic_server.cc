@@ -185,11 +185,12 @@ int XcacheQUICServer::sendData(picoquic_cnx_t* connection,
         // Send the data
         if (picoquic_add_to_stream(connection, stream_id,
                         ctx->data.data(), ctx->datalen, 1)) {
-                cout << "ERROR: queuing data to send. Returned " <<  rc << endl;
+                cout << "ERROR: queuing data to send" << endl;
                 return -1;
         }
         cout << "Sent data of size: " << ctx->datalen << endl;
         ctx->sent_offset = ctx->datalen;
+        return ctx->datalen;
 }
 
 int XcacheQUICServer::remove_context(picoquic_cnx_t* connection,
@@ -221,6 +222,7 @@ int XcacheQUICServer::process_data(callback_context_t* context,
         string data((const char*)bytes, length);
         cout << __FUNCTION__ << " Client sent " << data.c_str() << endl;
         context->received_so_far += length;
+        return length;
 }
 
 
