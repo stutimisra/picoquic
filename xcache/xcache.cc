@@ -1,26 +1,16 @@
 #include "localconfig.hpp"
 
-#include <string>
+//#include <string>
 #include <memory>
 #include <atomic>
 #include <iostream>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <signal.h>
 
-extern "C" {
-#include "picoquic.h"
-#include "picosocks.h"
-#include "util.h"
-};
-#include "quicxiasock.hpp"
-#include "xiaapi.hpp"
-#include "dagaddr.hpp"
-#include "cid_header.h"
-#include "xcache_quic_server.h"
-#include "fd_manager.h"
+#include "quicxiasock.hpp"      // QUICXIASocket
+#include "dagaddr.hpp"          // Graph
+#include "xcache_quic_server.h" // XcacheQUICServer
+#include "fd_manager.h"         // FdManager
 
 #define SERVER_CERT_FILE "certs/cert.pem"
 #define SERVER_KEY_FILE "certs/key.pem"
@@ -60,11 +50,11 @@ int main()
 	auto xcache_aid = conf.get(XCACHE_AID);
 	auto test_cid = conf.get(TEST_CID);
 	if (xcache_aid.size() == 0) {
-		printf("ERROR: XCACHE_AID entry missing in %s\n", CONFFILE);
+		cout << "ERROR: XCACHE_AID entry missing in " << CONFFILE << endl;
 		return -1;
 	}
 	if (test_cid.size() == 0) {
-		printf("ERROR: TEST_CID entry missing in %s\n", CONFFILE);
+		cout << "ERROR: TEST_CID entry missing in " << CONFFILE << endl;
 		return -1;
 	}
 	
