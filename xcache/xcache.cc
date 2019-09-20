@@ -74,11 +74,16 @@ int main()
 		delta_t = server.nextWakeDelay(delay_max);
 		std::vector<int> ready_fds;
 		int ret = fd_mgr.waitForData(delta_t, ready_fds);
-		if (ret < 0) {
+
+		if (stop.load()) {
+			std::cout << "Interrupted. Cleaning up..." << std::endl;
+			break;
+		}
+
+		if (ret < 0) {      // error
 			std::cout << "ERROR polling for data" << endl;
 		}
-		if (ret == 0) {
-			// timed out
+		if (ret == 0) {     // timed out
 			continue;
 		}
 
@@ -88,10 +93,6 @@ int main()
 			}
 		}
 
-		if (stop.load()) {
-			std::cout << "Interrupted. Cleaning up." << std::endl;
-			break;
-		}
 	}
 
 	// Server ended. Return success
