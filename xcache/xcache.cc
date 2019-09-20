@@ -41,8 +41,6 @@ void installSIGINTHandler() {
 
 int main()
 {
-	int retval = -1;
-
 	installSIGINTHandler();
 
 	// Get XIDs from local config file
@@ -96,9 +94,6 @@ int main()
 		}
 	}
 
-	// Server ended cleanly, change return code to success
-	retval = 0;
-
-server_done:
-	return retval;
+	// Server ended. Return success
+	return 0;
 }
