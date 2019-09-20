@@ -125,104 +125,104 @@ void XcacheQUICServer::print_address(struct sockaddr* address, char* label)
 
 int XcacheQUICServer::buildDataToSend(callback_context_t* ctx, size_t datalen)
 {
-        ctx->data.reserve(datalen);
-        for(int i=0; i<datalen; i++) {
-                ctx->data.push_back(i % 256);
-        }
-        return 0;
+    ctx->data.reserve(datalen);
+    for(int i=0; i<datalen; i++) {
+        ctx->data.push_back(i % 256);
+    }
+    return 0;
 }
 
 // Send a chunk
 int XcacheQUICServer::sendData(picoquic_cnx_t* connection,
                 uint64_t stream_id, callback_context_t* ctx)
 {
-        int rc;
-        if (!ctx) {
-                return -1;
+    int rc;
+    if (!ctx) {
+        return -1;
+    }
+
+    // Fill in random data as chunk contents
+    if (ctx->data.size() == 0) {
+        if (buildDataToSend(ctx, TEST_CHUNK_SIZE) ) {
+            cout << "ERROR creating data buffer to send" << endl;
+            return -1;
         }
+        ctx->datalen = TEST_CHUNK_SIZE;
+        ctx->sent_offset = 0;
+    }
 
-        // Fill in random data as chunk contents
-        if (ctx->data.size() == 0) {
-                if (buildDataToSend(ctx, TEST_CHUNK_SIZE) ) {
-                        cout << "ERROR creating data buffer to send" << endl;
-                        return -1;
-                }
-                ctx->datalen = TEST_CHUNK_SIZE;
-                ctx->sent_offset = 0;
-        }
+    if(ctx->sent_offset != 0) {
+        return 0;
+    }
 
-        if(ctx->sent_offset != 0) {
-                return 0;
-        }
+    char* datacharstr = reinterpret_cast<char*> (ctx->data.data());
+    string datastr(datacharstr, ctx->data.size());
 
-        char* datacharstr = reinterpret_cast<char*> (ctx->data.data());
-        string datastr(datacharstr, ctx->data.size());
+    // Make a Content Header for given data
+    auto chdr = make_unique<CIDHeader>(datastr, 0);
+    cout << __FUNCTION__ << " Content size: " << chdr->content_len() << endl;
+    string serialized_header = chdr->serialize();
 
-        // Make a Content Header for given data
-        auto chdr = make_unique<CIDHeader>(datastr, 0);
-        cout << __FUNCTION__ << " Content size: " << chdr->content_len() << endl;
-        string serialized_header = chdr->serialize();
+    // Send the header size
+    uint32_t header_len_nbo = htonl(serialized_header.size());
+    if (picoquic_add_to_stream(connection, stream_id,
+            (const uint8_t*) &header_len_nbo, sizeof(header_len_nbo), 0)) {
+        cout << __FUNCTION__ << " ERROR sending hdr size" << endl;
+        return -1;
+    }
+    cout << "Sent hdr size: " << serialized_header.size() << endl;
+    cout << "in NBO: " << header_len_nbo << endl;
 
-        // Send the header size
-        uint32_t header_len_nbo = htonl(serialized_header.size());
-        if (picoquic_add_to_stream(connection, stream_id,
-                        (const uint8_t*) &header_len_nbo, sizeof(header_len_nbo), 0)) {
-                cout << __FUNCTION__ << " ERROR sending hdr size" << endl;
-                return -1;
-        }
-        cout << "Sent hdr size: " << serialized_header.size() << endl;
-        cout << "in NBO: " << header_len_nbo << endl;
+    // Send the header
+    if (picoquic_add_to_stream(connection, stream_id,
+            (const uint8_t*) serialized_header.c_str(),
+            serialized_header.size(), 0)) {
+        cout << __FUNCTION__ << " ERROR: sending header" << endl;
+        return -1;
+    }
+    cout << "Sent header of size: " << serialized_header.size() << endl;
 
-        // Send the header
-        if (picoquic_add_to_stream(connection, stream_id,
-                        (const uint8_t*) serialized_header.c_str(),
-                        serialized_header.size(), 0)) {
-                cout << __FUNCTION__ << " ERROR: sending header" << endl;
-                return -1;
-        }
-        cout << "Sent header of size: " << serialized_header.size() << endl;
-
-        // Send the data
-        if (picoquic_add_to_stream(connection, stream_id,
-                        ctx->data.data(), ctx->datalen, 1)) {
-                cout << "ERROR: queuing data to send" << endl;
-                return -1;
-        }
-        cout << "Sent data of size: " << ctx->datalen << endl;
-        ctx->sent_offset = ctx->datalen;
-        return ctx->datalen;
+    // Send the data
+    if (picoquic_add_to_stream(connection, stream_id,
+            ctx->data.data(), ctx->datalen, 1)) {
+        cout << "ERROR: queuing data to send" << endl;
+        return -1;
+    }
+    cout << "Sent data of size: " << ctx->datalen << endl;
+    ctx->sent_offset = ctx->datalen;
+    return ctx->datalen;
 }
 
 int XcacheQUICServer::remove_context(picoquic_cnx_t* connection,
-                callback_context_t* context) {
-        if(context != NULL) {
-                delete context;
-                picoquic_set_callback(connection, server_callback, NULL);
-                std::cout << "ServerCallback: freed context" << std::endl;
-        }
-        return 0;
+            callback_context_t* context) {
+    if(context != NULL) {
+        delete context;
+        picoquic_set_callback(connection, server_callback, NULL);
+        std::cout << "ServerCallback: freed context" << std::endl;
+    }
+    return 0;
 }
 
 // Handle data from client
 int XcacheQUICServer::process_data(callback_context_t* context,
 		uint8_t* bytes, size_t length)
 {
-        // Missing context
-        if(!context) {
-                cout << __FUNCTION__ << " ERROR missing context" << endl;
-                return -1;
-        }
+    // Missing context
+    if(!context) {
+        cout << __FUNCTION__ << " ERROR missing context" << endl;
+        return -1;
+    }
 
-        // No data to process
-        if(length <= 0) {
-                return 0;
-        }
+    // No data to process
+    if(length <= 0) {
+        return 0;
+    }
 
-        // Client simply sends a hello message as a placeholder
-        string data((const char*)bytes, length);
-        cout << __FUNCTION__ << " Client sent " << data.c_str() << endl;
-        context->received_so_far += length;
-        return length;
+    // Client simply sends a hello message as a placeholder
+    string data((const char*)bytes, length);
+    cout << __FUNCTION__ << " Client sent " << data.c_str() << endl;
+    context->received_so_far += length;
+    return length;
 }
 
 
@@ -246,6 +246,7 @@ int XcacheQUICServer::server_callback(picoquic_cnx_t* connection,
         case picoquic_callback_almost_ready:
             cout << "ServerCallback: AlmostReady" << endl;
             break;
+
         // Handle the connection related events
         case picoquic_callback_close:
             cout << "ServerCallback: Close" << endl;
@@ -256,6 +257,7 @@ int XcacheQUICServer::server_callback(picoquic_cnx_t* connection,
         case picoquic_callback_stateless_reset:
             cout << "ServerCallback: StatelessReset" << endl;
             return (remove_context(connection, context));
+
         // Handle the stream related events
         case picoquic_callback_prepare_to_send:
             // Unexpected call
