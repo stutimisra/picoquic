@@ -7,10 +7,11 @@
 
 #include <signal.h>
 
-#include "quicxiasock.hpp"      // QUICXIASocket
-#include "dagaddr.hpp"          // Graph
-#include "xcache_quic_server.h" // XcacheQUICServer
-#include "fd_manager.h"         // FdManager
+#include "quicxiasock.hpp"          // QUICXIASocket
+#include "dagaddr.hpp"              // Graph
+#include "xcache_quic_server.h"     // XcacheQUICServer
+#include "xcache_icid_handler.h"    // XcacheICIDHandler
+#include "fd_manager.h"             // FdManager
 
 #define SERVER_CERT_FILE "certs/cert.pem"
 #define SERVER_KEY_FILE "certs/key.pem"
@@ -62,6 +63,7 @@ int main()
 	int xcache_sockfd = xcache_socket->fd();
 
 	XcacheQUICServer server;
+    XcacheICIDHandler icid_handler(server);
 
 	// Wait for packets
 	int64_t delay_max = 10000000;      // max wait 10 sec.
@@ -69,6 +71,7 @@ int main()
 
 	FdManager fd_mgr;
 	fd_mgr.addDescriptor(xcache_sockfd);
+    fd_mgr.addDescriptor(icid_handler.fd());
 
 	while (true) {
 		delta_t = server.nextWakeDelay(delay_max);
@@ -91,6 +94,10 @@ int main()
 			if (fd == xcache_sockfd) {
 				server.incomingPacket(xcache_sockfd);
 			}
+            if (fd == icid_handler.fd()) {
+                // We have an ICID packet to parse
+                continue;
+            }
 		}
 
 	}

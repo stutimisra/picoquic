@@ -59,6 +59,7 @@ set(PICOQUIC_XCACHE_FILES
 	xcache/xcache_thread_pool.cc
 	xcache/xcache_quic.cc
 	xcache/xcache_quic_server.cc
+    xcache/xcache_icid_handler.cc
 	xcache/fd_manager.cc
 
 	xcache/xcache_push_request.cc
