@@ -1,0 +1,28 @@
+/* Protocol between libxsocket and Xcache */
+syntax = "proto2";
+
+
+package ChunkAPI;
+
+enum status_code {
+	SUCCESS = 1;
+	ERROR = 2;
+	UNREACHABLE = 3;
+	TIMED_OUT = 4;
+}
+
+message chunk_list {
+	optional int32 ttl = 1;
+	repeated string cids = 2;
+}
+
+message notification {
+	required string cid = 1;
+	required status_code status = 2;
+	optional bytes content = 3;
+}
+
+message put_chunk {
+	required bytes content = 1;
+}
+

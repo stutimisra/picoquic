@@ -50,6 +50,8 @@ set(LOCAL_CONFIG_FILES
 set(PICOQUIC_XIA_API_FILES
 	picoquic/xiaapi.cpp
 	picoquic/quicxiasock.cpp
+	picoquic/chunkapi.cpp
+	picoquic/apihandler.cpp
 )
 
 set(PICOQUIC_LIBRARY_FILES
@@ -110,6 +112,13 @@ message(STATUS "OpenSSL_VERSION: ${OPENSSL_VERSION}")
 message(STATUS "OpenSSL_INCLUDE_DIR: ${OPENSSL_INCLUDE_DIR}")
 message(STATUS "OpenSSL_LIBRARIES: ${OPENSSL_LIBRARIES}")
 
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
+# json library for parsing manifest files
+set(JSON_BuildTests OFF CACHE INTERNAL "")
+add_subdirectory(json)
+
 find_package(Protobuf REQUIRED)
 file(GLOB ProtoFiles "${CMAKE_CURRENT_SOURCE_DIR}/picoquic/*.proto")
 PROTOBUF_GENERATE_CPP(ProtoSources ProtoHeaders ${ProtoFiles})
@@ -128,8 +137,9 @@ add_dependencies(picoquicxia xia)
 
 set(XIADIR ${CMAKE_SOURCE_DIR}/build/xia-prefix/src/xia)
 set(DAG_LIBRARY ${XIADIR}/api/lib/libdagaddr.so)
-target_link_libraries(picoquicxia ${PROTOBUF_LIBRARY} ${DAG_LIBRARY})
-include_directories(picoquicxia ${XIADIR}/api/include)
+target_link_libraries(picoquicxia ${PROTOBUF_LIBRARY} ${DAG_LIBRARY}
+	nlohmann_json::nlohmann_json )
+include_directories(picoquicxia ${XIADIR}/api/include )
 
 add_library(localconfig ${LOCAL_CONFIG_FILES})
 
@@ -186,6 +196,18 @@ target_link_libraries(xcacheclient picoquic-core picoquicxia
 )
 include_directories(xcacheclient ${XIADIR}/api/xcache/headers)
 
+add_executable(xfetch picoquicfirst/xfetch.cpp picoquicfirst/quicclient.cpp)
+target_link_libraries(xfetch picoquic-core picoquicxia
+	localconfig
+	${XCACHEHDR_LIBRARY}
+	${XCACHE_LIBRARY}
+	${PTLS_LIBRARIES}
+	${OPENSSL_LIBRARIES}
+	${CMAKE_THREAD_LIBS_INIT}
+	${CMAKE_DL_LIBS}
+)
+include_directories(xfetch ${XIADIR}/api/xcache/headers)
+
 add_executable(picoquicserverxia picoquicfirst/picoquicserverxia.cpp)
 target_link_libraries(picoquicserverxia picoquic-core picoquicxia
 	localconfig
@@ -202,9 +224,20 @@ target_link_libraries(xcache picoquic-core picoquicxia
 	${XCACHE_LIBRARY}
 	${PTLS_LIBRARIES}
 	${OPENSSL_LIBRARIES}
+	${CMAKE_THREAD_LIBS_INIT}
 	${CMAKE_DL_LIBS}
 )
 include_directories(xcache ${XIADIR}/api/xcache/headers)
+
+add_executable(chunker picoquicfirst/chunker.cpp)
+target_link_libraries(chunker PRIVATE picoquic-core picoquicxia
+	localconfig
+	${PTLS_LIBRARIES}
+	${XCACHE_LIBRARY}
+	${OPENSSL_LIBRARIES}
+	${CMAKE_DL_LIBS}
+)
+include_directories(chunker ${XIADIR}/api/include)
 
 add_executable(picoquic_ct picoquic_t/picoquic_t.c
  ${PICOQUIC_TEST_LIBRARY_FILES} )

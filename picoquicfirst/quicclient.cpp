@@ -123,7 +123,7 @@ int process_data(struct callback_context_t* context)
 				cout << __FUNCTION__ << " state READY" << endl;
 				cout << "We have the entire chunk now!" << endl;
 				rc = data_len;
-				printf("READY: %d %d \n", buf->size(), data_len);
+				printf("READY: %lu %lu\n", buf->size(), data_len);
 				return data_len;
 				break;
 		};
@@ -253,7 +253,8 @@ void start_stream(picoquic_cnx_t* connection,
 	}
 }
 
-int main()
+//int quicclient(std::string dag, chunk_callback *chunk_cb, void *user)
+int quicclient()
 {
 	// cleanup state
 	int state = 0;
@@ -466,7 +467,7 @@ int main()
 					cout << "Connected! ver: " <<
 							picoquic_supported_versions[
 							connection->version_index].version
-							<< " I-CID: " << 
+							<< " I-CID: " <<
 							(unsigned long long)picoquic_val64_connection_id(
 								picoquic_get_logging_cnxid(connection))
 							<< endl;

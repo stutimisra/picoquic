@@ -19,6 +19,8 @@ extern "C" {
 #include "xiaapi.hpp"
 #include "dagaddr.hpp"
 #include "cid_header.h"
+#include "apihandler.h"
+#include "chunkapi.h"
 
 #define SERVER_CERT_FILE "certs/cert.pem"
 #define SERVER_KEY_FILE "certs/key.pem"
@@ -66,15 +68,6 @@ typedef struct {
 	NodePtr xid;
 } callback_context_t;
 
-int buildDataToSend(callback_context_t* ctx, size_t datalen)
-{
-	ctx->data.reserve(datalen);
-	for(int i=0; i<datalen; i++) {
-		ctx->data.push_back(i % 256);
-	}
-	return 0;
-}
-
 static int sendData(picoquic_cnx_t* connection,
 		uint64_t stream_id, callback_context_t* ctx)
 {
@@ -83,11 +76,11 @@ static int sendData(picoquic_cnx_t* connection,
 		return -1;
 	}
 	if (ctx->data.size() == 0) {
-		if (buildDataToSend(ctx, TEST_CHUNK_SIZE) ) {
+		if ((rc = load_chunk(ctx->xid->id_string(), ctx->data)) <= 0) {
 			cout << "ERROR creating data buffer to send" << endl;
 			return -1;
 		}
-		ctx->datalen = TEST_CHUNK_SIZE;
+		ctx->datalen = rc;
 		ctx->sent_offset = 0;
 	}
 
@@ -273,7 +266,7 @@ int main()
 		printf("ERROR: TEST_CID entry missing in %s\n", CONFFILE);
 		return -1;
 	}
-	
+
 	// We give a fictitious AID for now, and get a dag in my_addr
 	auto server_socket = make_unique<QUICXIASocket>(xcache_aid);
 	dummy_cid_addr = server_socket->serveCID(test_cid);
@@ -294,6 +287,8 @@ int main()
 		printf("ERROR finding server key file\n");
 		goto server_done;
 	}
+
+	api_thread_create(sockfd);
 
 	// Create QUIC instance
 	current_time = picoquic_current_time();
