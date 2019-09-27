@@ -506,4 +506,8 @@ int picoquic_xia_select(int sockfd, sockaddr_x* addr_from,
 	return bytes_recv;
 }
 
-
+int picoquic_xia_icid_request(int xcachesockfd,
+        sockaddr_x* cid_addr, sockaddr_x* our_addr) {
+    uint8_t bytes[0];
+    picoquic_xia_sendmsg(xcachesockfd, bytes, 0, cid_addr, our_addr);
+}

@@ -4,6 +4,8 @@ cmake_policy(SET CMP0003 NEW)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 include(ExternalProject)
 include(TestBigEndian)
 project(picoquic)
@@ -52,6 +54,19 @@ set(PICOQUIC_XIA_API_FILES
 	picoquic/quicxiasock.cpp
 	picoquic/chunkapi.cpp
 	picoquic/apihandler.cpp
+)
+
+set(PICOQUIC_XCACHE_FILES
+	xcache/xcache.cc
+	xcache/xcache_thread_pool.cc
+	xcache/xcache_quic.cc
+	xcache/xcache_quic_server.cc
+    xcache/xcache_icid_handler.cc
+	xcache/fd_manager.cc
+
+	xcache/xcache_push_request.cc
+	xcache/xcache_receive_request.cc
+	xcache/xcache_irq_table.cc
 )
 
 set(PICOQUIC_LIBRARY_FILES
@@ -184,6 +199,7 @@ include_directories(picoquicclientxia ${XIADIR}/api/include)
 
 set(XCACHEHDR_LIBRARY ${XIADIR}/api/lib/libxcachehdr.so)
 set(XCACHE_LIBRARY ${XIADIR}/api/lib/libxcache.so)
+set(XSOCKET_LIBRARY ${XIADIR}/api/lib/libXsocket.so)
 
 add_executable(xcacheclient picoquicfirst/xcacheclient.cpp)
 target_link_libraries(xcacheclient picoquic-core picoquicxia
@@ -217,17 +233,21 @@ target_link_libraries(picoquicserverxia picoquic-core picoquicxia
 )
 include_directories(picoquicserverxia ${XIADIR}/api/include)
 
-add_executable(xcache picoquicfirst/xcache.cpp)
+find_package( Threads )
+add_executable(xcache ${PICOQUIC_XCACHE_FILES})
 target_link_libraries(xcache picoquic-core picoquicxia
 	localconfig
 	${XCACHEHDR_LIBRARY}
 	${XCACHE_LIBRARY}
 	${PTLS_LIBRARIES}
 	${OPENSSL_LIBRARIES}
+	${PROTOBUF_LIBRARY}
 	${CMAKE_THREAD_LIBS_INIT}
+	${XSOCKET_LIBRARY}
 	${CMAKE_DL_LIBS}
 )
 include_directories(xcache ${XIADIR}/api/xcache/headers)
+include_directories(xcache ${XIADIR}/api/xcache)
 
 add_executable(chunker picoquicfirst/chunker.cpp)
 target_link_libraries(chunker PRIVATE picoquic-core picoquicxia
