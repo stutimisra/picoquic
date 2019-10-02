@@ -8,8 +8,9 @@
 
 using namespace std;
 
-XcacheQUICServer::XcacheQUICServer()
+XcacheQUICServer::XcacheQUICServer(int xcache_sockfd)
 	: quic(&XcacheQUICServer::server_callback) {
+    sockfd = xcache_sockfd;
 }
 
 void XcacheQUICServer::updateTime() {
@@ -20,8 +21,12 @@ int64_t XcacheQUICServer::nextWakeDelay(int64_t delay_max) {
 	return quic.nextWakeDelay(delay_max);
 }
 
+int XcacheQUICServer::sendInterest(sockaddr_x& icid_dag) {
+    return picoquic_xia_icid_request(sockfd, &icid_dag, &addr_local);
+}
+
 // There's a packet on sockfd for us to process, after select()
-int XcacheQUICServer::incomingPacket(int sockfd) {
+int XcacheQUICServer::incomingPacket() {
 	bytes_recv = picoquic_xia_recvfrom(sockfd, &addr_from, &addr_local,
 			buffer, sizeof(buffer));
 	if(bytes_recv <= 0) {

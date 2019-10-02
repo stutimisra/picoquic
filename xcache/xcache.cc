@@ -62,7 +62,7 @@ int main()
 	GraphPtr dummy_cid_addr = xcache_socket->serveCID(test_cid);
 	int xcache_sockfd = xcache_socket->fd();
 
-	XcacheQUICServer server;
+	XcacheQUICServer server(xcache_sockfd);
     XcacheICIDHandler icid_handler(server);
 
 	// Wait for packets
@@ -92,7 +92,7 @@ int main()
 
 		for (auto fd : ready_fds) {
 			if (fd == xcache_sockfd) {
-				server.incomingPacket(xcache_sockfd);
+				server.incomingPacket();
 			}
             if (fd == icid_handler.fd()) {
                 // We have an ICID packet to parse

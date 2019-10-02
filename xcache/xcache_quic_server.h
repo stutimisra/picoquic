@@ -29,10 +29,11 @@ typedef struct {
 
 class XcacheQUICServer {
 	public:
-		XcacheQUICServer();
+		XcacheQUICServer(int xcache_sockfd);
 		int64_t nextWakeDelay(int64_t delay_max);
 		void updateTime();
-		int incomingPacket(int sockfd);
+		int incomingPacket();
+        int sendInterest(sockaddr_x& icid_dag);
 	private:
 		static int server_callback(picoquic_cnx_t* connection,
 				uint64_t stream_id, uint8_t* bytes, size_t length,
@@ -59,6 +60,8 @@ class XcacheQUICServer {
 		sockaddr_x addr_from;
 		sockaddr_x addr_local;
 		int64_t delta_t;
+
+        int sockfd;     // QUIC socket, this server is listening to
 
 };
 #endif //_XCACHE_QUIC_SERVER_H

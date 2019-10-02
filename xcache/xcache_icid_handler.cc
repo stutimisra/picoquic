@@ -111,10 +111,12 @@ int XcacheICIDHandler::handleICIDRequest()
     }
 
     std::cout << "ICIDHandler: sending new ICID request" << std::endl;
+
     // Send a new ICID request with our socket's address
     sockaddr_x icid_addr;
     dst_dag.fill_sockaddr(&icid_addr);
-    // TODO: This should have our AID DAG instead instead of recv_sock
-    //XinterestedInCID(recv_sock, &icid_addr);
+    _server.sendInterest(icid_addr);
+
     std::cout << "ICIDHandler: done handling ICID request" << std::endl;
+    return 0;
 }
