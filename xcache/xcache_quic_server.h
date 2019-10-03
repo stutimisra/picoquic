@@ -9,14 +9,17 @@ extern "C" {
 
 #include <vector>
 #include <memory>
+#include <string>
 
 #include "xcache_quic.h"
+#include "quicxiasock.hpp"
 
 #include "xiaapi.hpp"
 
 #define TEST_CHUNK_SIZE 8192
 
 using XcacheQUICPtr = std::unique_ptr<XcacheQUIC>;
+using QUICXIASocketPtr = std::unique_ptr<QUICXIASocket>;
 
 typedef struct {
     int stream_open;
@@ -29,11 +32,13 @@ typedef struct {
 
 class XcacheQUICServer {
     public:
-        XcacheQUICServer(int xcache_sockfd);
+        XcacheQUICServer(const std::string& aid);
         int64_t nextWakeDelay(int64_t delay_max);
         void updateTime();
         int incomingPacket();
         int sendInterest(sockaddr_x& icid_dag);
+        int fd();
+        GraphPtr serveCID(const std::string& cid);
     private:
         static int server_callback(picoquic_cnx_t* connection,
                 uint64_t stream_id, uint8_t* bytes, size_t length,
@@ -62,6 +67,7 @@ class XcacheQUICServer {
         int64_t delta_t;
 
         int sockfd;     // QUIC socket, this server is listening to
+        QUICXIASocketPtr xcache_socket;
 
 };
 #endif //_XCACHE_QUIC_SERVER_H

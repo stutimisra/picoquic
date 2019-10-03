@@ -47,6 +47,11 @@ bool QUICXIASocket::unserveCID(const std::string& cid) {
 	return true;
 }
 
+int QUICXIASocket::fillAddress(sockaddr_x& addr) {
+    our_addr->fill_sockaddr(&addr);
+    return 0;
+}
+
 int QUICXIASocket::fd() {
 	return sockfd;
 }

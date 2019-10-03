@@ -58,19 +58,19 @@ int main()
     }
     
     // We give a fictitious AID for now, and get a dag in my_addr
-    auto xcache_socket = make_unique<QUICXIASocket>(xcache_aid);
-    GraphPtr dummy_cid_addr = xcache_socket->serveCID(test_cid);
-    int xcache_sockfd = xcache_socket->fd();
-
-    XcacheQUICServer server(xcache_sockfd);
+    XcacheQUICServer server(xcache_aid);
     XcacheICIDHandler icid_handler(server);
+
+    // This is how we tell the server that a CID is available
+    // and it creates a route for it on the router
+    GraphPtr dummy_cid_addr = server.serveCID(test_cid);
 
     // Wait for packets
     int64_t delay_max = 10000000;      // max wait 10 sec.
     int64_t delta_t;
 
     FdManager fd_mgr;
-    fd_mgr.addDescriptor(xcache_sockfd);
+    fd_mgr.addDescriptor(server.fd());
     fd_mgr.addDescriptor(icid_handler.fd());
 
     while (true) {
@@ -91,11 +91,11 @@ int main()
         }
 
         for (auto fd : ready_fds) {
-            if (fd == xcache_sockfd) {
+            if (fd == server.fd()) {
                 server.incomingPacket();
             }
             if (fd == icid_handler.fd()) {
-                // We have an ICID packet to parse
+                icid_handler.handleICIDRequest();
                 continue;
             }
         }

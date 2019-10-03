@@ -8,13 +8,21 @@
 
 using namespace std;
 
-XcacheQUICServer::XcacheQUICServer(int xcache_sockfd)
+XcacheQUICServer::XcacheQUICServer(const string& xcache_aid)
     : quic(&XcacheQUICServer::server_callback) {
-    sockfd = xcache_sockfd;
+    xcache_socket = make_unique<QUICXIASocket>(xcache_aid);
 }
 
 void XcacheQUICServer::updateTime() {
     quic.updateTime();
+}
+
+int XcacheQUICServer::fd() {
+    return xcache_socket->fd();
+}
+
+GraphPtr XcacheQUICServer::serveCID(const string& cid) {
+    return xcache_socket->serveCID(cid);
 }
 
 int64_t XcacheQUICServer::nextWakeDelay(int64_t delay_max) {
@@ -22,15 +30,17 @@ int64_t XcacheQUICServer::nextWakeDelay(int64_t delay_max) {
 }
 
 int XcacheQUICServer::sendInterest(sockaddr_x& icid_dag) {
-    return picoquic_xia_icid_request(sockfd, &icid_dag, &addr_local);
+    sockaddr_x our_addr;
+    xcache_socket->fillAddress(our_addr);
+    return picoquic_xia_icid_request(fd(), &icid_dag, &our_addr);
 }
 
-// There's a packet on sockfd for us to process, after select()
+// There's a packet on our socket for us to process, after select()
 int XcacheQUICServer::incomingPacket() {
-    bytes_recv = picoquic_xia_recvfrom(sockfd, &addr_from, &addr_local,
+    bytes_recv = picoquic_xia_recvfrom(fd(), &addr_from, &addr_local,
             buffer, sizeof(buffer));
     if(bytes_recv <= 0) {
-        cout << "ERROR recv on xiaquic sock " << sockfd << endl;
+        cout << "ERROR recv on xiaquic sock " << fd() << endl;
     }
     quic.updateTime();
 
@@ -70,7 +80,7 @@ int XcacheQUICServer::incomingPacket() {
         }
         // send out any outstanding stateless packets
         cout << "Server: sending stateless packet out on network" << endl;
-        picoquic_xia_sendmsg(sockfd, sp->bytes, sp->length,
+        picoquic_xia_sendmsg(fd(), sp->bytes, sp->length,
                 &sp->addr_to, &sp->addr_local);
         picoquic_delete_stateless_packet(sp);
     }
@@ -102,7 +112,7 @@ int XcacheQUICServer::incomingPacket() {
         if(rc == 0) {
             if(send_length > 0) {
                 printf("Server: sending %ld byte packet\n", send_length);
-                (void)picoquic_xia_sendmsg(sockfd,
+                (void)picoquic_xia_sendmsg(fd(),
                         send_buffer, send_length,
                         &addr_from, &addr_local);
             }
