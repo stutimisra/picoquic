@@ -13,7 +13,7 @@
 #include <iostream>
 #include <fstream>
 #include "chunkapi.h"
-#include "quicclient.h"
+#include "xcache_quic_client.h"
 
 bool verbose = false;				// minimal output
 bool waiting = true;
@@ -179,7 +179,7 @@ int main(int argc, char **argv)
 		help();
 	}
 
-	quicclient();
+//	quicclient();
 
 	return 0;
 }
