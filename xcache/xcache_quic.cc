@@ -13,15 +13,27 @@ extern "C" {
 #include <iostream>
 #include <memory>
 
-XcacheQUIC::XcacheQUIC(picoquic_stream_data_cb_fn callback) {
-	server_cert_file = serverCertFile();
-	server_key_file = serverKeyFile();
-	current_time = picoquic_current_time();
+XcacheQUIC::XcacheQUIC(picoquic_stream_data_cb_fn callback, QUIC_ROLE instance_role) {
+	const char *server_cert_file = NULL;
+	const char *server_key_file = NULL;
+	const char *client_ticket_file = NULL;
+	const char *client_alpn = NULL;
+	role = instance_role;
+
+	if (role == XCACHE_SERVER) {
+		server_cert_file = SERVER_CERT_FILE;
+		server_key_file = SERVER_KEY_FILE;
+
+	} else {
+		client_ticket_file = CLIENT_TICKET_FILE;
+		client_alpn = CLIENT_ALPN;
+	}
+
 	picoquic_quic_t* s = picoquic_create(8, // number of connections
-			server_cert_file.c_str(),
-			server_key_file.c_str(),
+			server_cert_file,
+			server_key_file,
 			NULL,               // cert_root_filename
-			NULL,               // Appl. Layer Protocol Negotiation (ALPN)
+			client_alpn,        // Appl. Layer Protocol Negotiation (ALPN)
 			callback,           // Stream data callback
 			NULL,               // Stream data context
 			NULL,               // Connection ID callback
@@ -29,7 +41,7 @@ XcacheQUIC::XcacheQUIC(picoquic_stream_data_cb_fn callback) {
 			NULL,               // reset seed
 			current_time,
 			NULL,               // p_simulated time
-			NULL,               // ticket_file_name
+			client_ticket_file, // ticket_file_name
 			NULL,               // ticket_encryption_key
 			0                   // ticket encryption key length
 			);
@@ -76,6 +88,7 @@ picoquic_cnx_t* XcacheQUIC::earliestConnection() {
 	return picoquic_get_earliest_cnx_to_wake(server.get(), current_time);
 }
 
+#if 0
 std::string XcacheQUIC::serverCertFile() {
 	return inputPath(SERVER_CERT_FILE);
 }
@@ -83,6 +96,7 @@ std::string XcacheQUIC::serverCertFile() {
 std::string XcacheQUIC::serverKeyFile() {
 	return inputPath(SERVER_KEY_FILE);
 }
+#endif
 
 std::string XcacheQUIC::inputPath(std::string filename) {
 	char buf[1024];

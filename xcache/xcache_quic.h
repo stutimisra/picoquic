@@ -17,7 +17,11 @@ extern "C" {
 
 #define SERVER_CERT_FILE "certs/cert.pem"
 #define SERVER_KEY_FILE "certs/key.pem"
+#define CLIENT_TICKET_FILE "/tmp/xcache_ticket_store.bin"
+#define CLIENT_ALPN "hq-17"
 #define LOGFILENAME "xcache.log"
+
+enum QUIC_ROLE {XCACHE_SERVER, XCACHE_CLIENT};
 
 using PicoquicPtr = std::unique_ptr<picoquic_quic_t,
 	  decltype(&picoquic_free)>;
@@ -26,7 +30,7 @@ using FilePtr = std::unique_ptr<FILE, decltype(&fclose)>;
 
 class XcacheQUIC {
 	public:
-		XcacheQUIC(picoquic_stream_data_cb_fn callback);
+		XcacheQUIC(picoquic_stream_data_cb_fn callback, QUIC_ROLE instance_roll);
 		void updateTime();
 		int64_t nextWakeDelay(int64_t delay_max);
 		int incomingPacket(uint8_t* bytes, uint32_t packet_length,
@@ -39,14 +43,15 @@ class XcacheQUIC {
 
 	private:
 		void init();
-		std::string serverCertFile();
-		std::string serverKeyFile();
+//		std::string serverCertFile();
+//		std::string serverKeyFile();
 		std::string inputPath(std::string filename);
 
-		std::string server_key_file;
-		std::string server_cert_file;
+//		std::string server_key_file;
+//		std::string server_cert_file;
 		PicoquicPtr server = PicoquicPtr(nullptr, &picoquic_free);
 		FilePtr logfile = FilePtr(nullptr, &fclose);
 		uint64_t current_time;
+		QUIC_ROLE role;
 };
 #endif //_XCACHE_QUIC_H_
