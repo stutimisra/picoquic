@@ -14,6 +14,13 @@ extern "C" {
 // C++ standard includes
 #include <string>
 #include <memory>
+#include <vector> // FIXME: switch to string???
+
+// XIA Includes
+#include "publisher/publisher.h"
+#include "headers/content_header.h"
+
+#include "xiaapi.hpp"
 
 #define SERVER_CERT_FILE "certs/cert.pem"
 #define SERVER_KEY_FILE "certs/key.pem"
@@ -27,6 +34,34 @@ using PicoquicPtr = std::unique_ptr<picoquic_quic_t,
 	  decltype(&picoquic_free)>;
 
 using FilePtr = std::unique_ptr<FILE, decltype(&fclose)>;
+
+// FIXME: this shouldn't go here
+enum class ChunkState {INITIAL, FETCHING_HEADER, FETCHING_DATA, READY};
+struct chunk {
+	ChunkState state = ChunkState::INITIAL;
+	int hdr_len = -1;
+	std::vector<uint8_t> buf;
+	std::unique_ptr<ContentHeader> chdr;
+	std::unique_ptr<uint8_t> data;
+};
+
+
+
+typedef struct {
+	int stream_open;
+	int received_so_far;
+	std::vector<uint8_t> data;
+	size_t datalen;
+	size_t recv_offset;		// FIXME: do i need this??
+	size_t sent_offset;		// FIXME: do i need this??
+	NodePtr xid;
+
+	// added from client code
+	uint64_t last_interaction_time;
+	std::unique_ptr<struct chunk> chunk;
+} callback_context_t;
+
+
 
 class XcacheQUIC {
 	public:

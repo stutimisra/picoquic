@@ -23,29 +23,29 @@ extern "C" {
 
 using XcacheQUICPtr = std::unique_ptr<XcacheQUIC>;
 
-enum class ChunkState {INITIAL, FETCHING_HEADER, FETCHING_DATA, READY};
+//enum class ChunkState {INITIAL, FETCHING_HEADER, FETCHING_DATA, READY};
 
-struct chunk {
-	ChunkState state = ChunkState::INITIAL;
-	int hdr_len = -1;
-	std::vector<uint8_t> buf;
-	std::unique_ptr<ContentHeader> chdr;
-	std::unique_ptr<uint8_t> data;
-};
+//struct chunk {
+//	ChunkState state = ChunkState::INITIAL;
+//	int hdr_len = -1;
+//	std::vector<uint8_t> buf;
+//	std::unique_ptr<ContentHeader> chdr;
+//	std::unique_ptr<uint8_t> data;
+//};
 
-typedef struct {
-	int stream_open;
-	int received_so_far;
-	std::vector<uint8_t> data;
-	size_t datalen;
-	size_t recv_offset;		// FIXME: do i need this??
-	size_t sent_offset;		// FIXME: do i need this??
-	NodePtr xid;
-
-	// added from client code
-	uint64_t last_interaction_time;
-	std::unique_ptr<struct chunk> chunk;
-} callback_context_t;
+//typedef struct {
+//	int stream_open;
+//	int received_so_far;
+//	std::vector<uint8_t> data;
+//	size_t datalen;
+//	size_t recv_offset;		// FIXME: do i need this??
+//	size_t sent_offset;		// FIXME: do i need this??
+//	NodePtr xid;
+//
+//	// added from client code
+//	uint64_t last_interaction_time;
+//	std::unique_ptr<struct chunk> chunk;
+//} callback_context_t;
 
 class XcacheQUICClient {
 	public:

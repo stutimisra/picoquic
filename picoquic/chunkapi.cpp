@@ -237,7 +237,7 @@ cid_list_t put(const char *buffer, uint32_t size, uint32_t chunk_size, uint32_t 
 void get_chunk(const void *data)
 {
 
-	const callback_context *cc = (callback_context *)data;
+	const chunk_context_t *cc = (chunk_context_t *)data;
 
 	// strip everything but the cid hash from the sting
 	std::string dag = cc->dag;

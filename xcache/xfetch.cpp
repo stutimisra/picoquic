@@ -142,7 +142,7 @@ void my_callback(uint32_t status, std::string cid, std::string data, void *user_
 
 int fetch(std::string dag)
 {
-	callback_context cc;
+	chunk_context_t cc;
 
 	std::cout << "fetching: " << dag << std::endl;
 	waiting = true;

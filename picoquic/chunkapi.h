@@ -20,7 +20,7 @@ typedef struct {
 	chunk_callback cb;
 	void *user_data;
 	bool block;
-} callback_context;
+} chunk_context_t;
 
 typedef std::vector <std::string> cid_list_t;
 

@@ -10,14 +10,22 @@
 #include "quicxiasock.hpp"          // QUICXIASocket
 #include "dagaddr.hpp"              // Graph
 #include "xcache_quic_server.h"     // XcacheQUICServer
+#include "xcache_quic_client.h"     // XcacheQUICClient
 #include "xcache_icid_handler.h"    // XcacheICIDHandler
 #include "fd_manager.h"             // FdManager
+
+
+#include "apihandler.h"
+#include "chunkapi.h"
+
+
 
 #define SERVER_CERT_FILE "certs/cert.pem"
 #define SERVER_KEY_FILE "certs/key.pem"
 
 #define CONFFILE "xcache.local.conf"
 #define XCACHE_AID "XCACHE_AID"
+#define CLIENT_AID "CLIENT_AID"
 #define TEST_CID "TEST_CID"
 
 #define TEST_CHUNK_SIZE 8192
@@ -47,6 +55,7 @@ int main()
 	// Get XIDs from local config file
 	auto conf = LocalConfig::get_instance(CONFFILE);
 	auto xcache_aid = conf.get(XCACHE_AID);
+	auto client_aid = conf.get(CLIENT_AID);
 	auto test_cid = conf.get(TEST_CID);
 	if (xcache_aid.size() == 0) {
 		cout << "ERROR: XCACHE_AID entry missing in " << CONFFILE << endl;
@@ -56,14 +65,22 @@ int main()
 		cout << "ERROR: TEST_CID entry missing in " << CONFFILE << endl;
 		return -1;
 	}
-	
+
 	// We give a fictitious AID for now, and get a dag in my_addr
 	auto xcache_socket = make_unique<QUICXIASocket>(xcache_aid);
 	GraphPtr dummy_cid_addr = xcache_socket->serveCID(test_cid);
 	int xcache_sockfd = xcache_socket->fd();
 
+	auto client_socket = make_unique<QUICXIASocket>(client_aid);
+	int client_sockfd = client_socket->fd();
+
+
 	XcacheQUICServer server;
+	XcacheQUICClient client;
     XcacheICIDHandler icid_handler(server);
+
+	// FIXME: integrate into the loop below instead of being a separate thread
+	api_thread_create(xcache_sockfd);
 
 	// Wait for packets
 	int64_t delay_max = 10000000;      // max wait 10 sec.
@@ -72,6 +89,7 @@ int main()
 	FdManager fd_mgr;
 	fd_mgr.addDescriptor(xcache_sockfd);
     fd_mgr.addDescriptor(icid_handler.fd());
+    fd_mgr.addDescriptor(client_sockfd);
 
 	while (true) {
 		delta_t = server.nextWakeDelay(delay_max);
@@ -93,6 +111,9 @@ int main()
 		for (auto fd : ready_fds) {
 			if (fd == xcache_sockfd) {
 				server.incomingPacket(xcache_sockfd);
+			}
+			if (fd == client_sockfd) {
+				client.incomingPacket(client_sockfd);
 			}
             if (fd == icid_handler.fd()) {
                 // We have an ICID packet to parse

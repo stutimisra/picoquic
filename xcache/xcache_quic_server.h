@@ -18,14 +18,14 @@ extern "C" {
 
 using XcacheQUICPtr = std::unique_ptr<XcacheQUIC>;
 
-typedef struct {
-	int stream_open;
-	int received_so_far;
-	std::vector<uint8_t> data;
-	size_t datalen;
-	size_t sent_offset;
-	NodePtr xid;
-} callback_context_t;
+//typedef struct {
+//	int stream_open;
+//	int received_so_far;
+//	std::vector<uint8_t> data;
+//	size_t datalen;
+//	size_t sent_offset;
+//	NodePtr xid;
+//} callback_context_t;
 
 class XcacheQUICServer {
 	public:
