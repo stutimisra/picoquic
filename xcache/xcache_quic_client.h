@@ -66,6 +66,8 @@ class XcacheQUICClient {
 		static int process_data(callback_context_t* context,
 				uint8_t* bytes, size_t length);
 
+		string fetch(string dag);
+
 
 		// ADDED FROM CLIENT
 		static int receive_data(callback_context_t* context,

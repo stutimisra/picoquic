@@ -212,7 +212,7 @@ set(XSOCKET_LIBRARY ${XIADIR}/api/lib/libXsocket.so)
 #)
 #include_directories(xcacheclient ${XIADIR}/api/xcache/headers)
 
-add_executable(xfetch xcache/xfetch.cpp ${PICOQUIC_XCACHE_FILES})
+add_executable(xfetch xcache/xfetch.cc ${PICOQUIC_XCACHE_FILES})
 target_link_libraries(xfetch picoquic-core picoquicxia
 	localconfig
 	${XCACHEHDR_LIBRARY}

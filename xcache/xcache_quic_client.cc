@@ -10,6 +10,7 @@ using namespace std;
 
 XcacheQUICClient::XcacheQUICClient()
 	: quic(&XcacheQUICClient::client_callback, XCACHE_CLIENT) {
+
 }
 
 void XcacheQUICClient::updateTime() {
@@ -217,9 +218,8 @@ int XcacheQUICClient::process_data(callback_context_t* context,
         return 0;
     }
 
-    // Client simply sends a hello message as a placeholder
     string data((const char*)bytes, length);
-    cout << __FUNCTION__ << " Client sent " << data.c_str() << endl;
+    cout << __FUNCTION__ << " Client sent " << length<< " bytes" << endl;
     context->received_so_far += length;
     return length;
 }
@@ -298,3 +298,9 @@ int XcacheQUICClient::client_callback(picoquic_cnx_t* connection,
     return 0;
 }
 
+
+string fetch(string dag)
+{
+
+	return "some data";
+}
