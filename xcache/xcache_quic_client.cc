@@ -6,8 +6,6 @@
 #include <functional> // std::bind
 #include <iostream>
 
-using namespace std;
-
 XcacheQUICClient::XcacheQUICClient()
 	: quic(&XcacheQUICClient::client_callback, XCACHE_CLIENT) {
 

@@ -19,6 +19,8 @@ extern "C" {
 
 #include "xiaapi.hpp"
 
+using namespace std;
+
 #define TEST_CHUNK_SIZE 8192
 
 using XcacheQUICPtr = std::unique_ptr<XcacheQUIC>;
