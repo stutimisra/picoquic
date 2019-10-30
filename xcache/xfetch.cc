@@ -92,18 +92,18 @@ void installSIGINTHandler() {
 	sigaction(SIGINT, &action, NULL);
 }
 
-int fetch(int client_sockfd, string dag)
+int fetch_chunk(string dag)
 {
 	cout << "Fetching " << dag;
 
-	XcacheQUICClient client;
+	XcacheQUICClient client(dag);
 
 	// Wait for packets
 	int64_t delay_max = 10000000;      // max wait 10 sec.
 	int64_t delta_t;
 
 	FdManager fd_mgr;
-    fd_mgr.addDescriptor(client_sockfd);
+    fd_mgr.addDescriptor(client.fd());
 
 	while (true) {
 		delta_t = client.nextWakeDelay(delay_max);
@@ -123,8 +123,8 @@ int fetch(int client_sockfd, string dag)
 		}
 
 		for (auto fd : ready_fds) {
-			if (fd == client_sockfd) {
-				client.incomingPacket(client_sockfd);
+			if (fd == client.fd()) {
+				client.incomingPacket();
 			} else {
 				cout << "unknown socket!";
 			}
@@ -142,19 +142,13 @@ int main(int argc, char **argv)
 	installSIGINTHandler();
 	config(argc, argv);
 
-	auto client_socket = make_unique<QUICXIASocket>(client_aid);
-	int client_sockfd = client_socket->fd();
-
-	// FIXME: migrate master loop and run this from inside it too
-	api_thread_create(client_sockfd);
-
 	if (!manifest.empty()) {
 		cid_list_t cids = load_manifest(manifest);
 		for (std::vector<std::string>::iterator it = cids.begin(); it != cids.end(); it++) {
-			fetch(client_sockfd, *it);
+			fetch_chunk(*it);
 		}
 	} else if (!dag.empty()) {
-		fetch(client_sockfd, dag);
+		fetch_chunk(dag);
 	} else {
 		help();
 	}

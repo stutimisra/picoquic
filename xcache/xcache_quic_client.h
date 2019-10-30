@@ -16,10 +16,12 @@ extern "C" {
 
 
 #include "xcache_quic.h"
+#include "quicxiasock.hpp"
 
 #include "xiaapi.hpp"
 
 using namespace std;
+using QUICXIASocketPtr = std::unique_ptr<QUICXIASocket>;
 
 #define TEST_CHUNK_SIZE 8192
 
@@ -51,10 +53,11 @@ using XcacheQUICPtr = std::unique_ptr<XcacheQUIC>;
 
 class XcacheQUICClient {
 	public:
-		XcacheQUICClient();
+		XcacheQUICClient(const std::string& aid);
 		int64_t nextWakeDelay(int64_t delay_max);
 		void updateTime();
-		int incomingPacket(int sockfd);
+		int incomingPacket();
+        	int fd();
 	private:
 		static int client_callback(picoquic_cnx_t* connection,
 				uint64_t stream_id, uint8_t* bytes, size_t length,
@@ -94,6 +97,7 @@ class XcacheQUICClient {
 		sockaddr_x addr_from;
 		sockaddr_x addr_local;
 		int64_t delta_t;
+        	QUICXIASocketPtr xcache_socket;
 
 };
 #endif //_XCACHE_QUIC_CLIENT_H

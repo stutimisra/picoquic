@@ -7,6 +7,8 @@
 #include <iostream>
 #include <memory>
 
+using namespace std;
+
 XcacheICIDHandler::XcacheICIDHandler(XcacheQUICServer& server)
     : _server(server) {
 
@@ -46,17 +48,17 @@ int XcacheICIDHandler::handleICIDRequest()
     bool fetch_needed = false;
     auto irqtable = XcacheIRQTable::get_table();
 
-    std::cout << "ICIDHandler: waiting for incoming ICID packet" << std::endl;
+    cout << "XcacheICIDHandler: waiting for incoming ICID packet" << endl;
     ret = recvfrom(_sockfd, buffer, ICID_MAXBUF, 0, NULL, NULL);
     if(ret <= 0) {
-        std::cout << "Error reading interest:"
-            << strerror(errno) << std::endl;
+        cout << "Error reading interest:"
+            << strerror(errno) << endl;
         return -1;
     }
 
     // Read in the XIA Header here
     // TODO: Add additional checks to ensure buffer contains XIA pkt
-    std::cout << "ICIDHandler: reading XIA header" << std::endl;
+    cout << "XcacheICIDHandler: reading XIA header" << endl;
     struct click_xia *xiah = (struct click_xia *)buffer;
     Graph dst_dag;
     dst_dag.from_wire_format(xiah->dnode, &xiah->node[0]);
@@ -66,7 +68,7 @@ int XcacheICIDHandler::handleICIDRequest()
 
     // Now find the ICID intent
     // TODO: Handle exception thrown if intent is not an ICID
-    std::cout << "ICIDHandler: looking for ICID intent" << std::endl;
+    cout << "XcacheICIDHandler: looking for ICID intent" << endl;
     Node icid = dst_dag.intent_ICID();
 
     // Convert into CID to check for
@@ -87,18 +89,18 @@ int XcacheICIDHandler::handleICIDRequest()
         return;
     }
     */
-    std::cout << "ICIDHandler: CID was not local" << std::endl;
+    cout << "XcacheICIDHandler: CID was not local" << endl;
     // If not,
     // We need to fetch only if the chunk is not already in IRQ table
     if(irqtable->has_entry(cid_str) == false) {
-        std::cout << "ICIDHandler: CID not requested before" << std::endl;
+        cout << "XcacheICIDHandler: CID not requested before" << endl;
         fetch_needed = true;
     }
 
     // add CID and requestor address to irq_table
-    std::cout << "ICIDHandler: updating interest request table" << std::endl;
+    cout << "XcacheICIDHandler: updating interest request table" << endl;
     if(irqtable->add_fetch_request(cid_str, src_dag.dag_string()) == false) {
-        std::cout << "Error adding fetch request to table" << std::endl;
+        cout << "Error adding fetch request to table" << endl;
         return -1;
     }
 
@@ -106,15 +108,17 @@ int XcacheICIDHandler::handleICIDRequest()
     // it to be satisfied.
     // TODO: This prevents repeated requests from client. Is that OK?
     if(!fetch_needed) {
-        std::cout << "ICIDHandler: skipping duplicate ICID" << std::endl;
+        cout << "XcacheICIDHandler: skipping duplicate ICID" << endl;
         return 0;
     }
 
-    std::cout << "ICIDHandler: sending new ICID request" << std::endl;
+    cout << "XcacheICIDHandler: sending new ICID request" << endl;
+
     // Send a new ICID request with our socket's address
     sockaddr_x icid_addr;
     dst_dag.fill_sockaddr(&icid_addr);
-    // TODO: This should have our AID DAG instead instead of recv_sock
-    //XinterestedInCID(recv_sock, &icid_addr);
-    std::cout << "ICIDHandler: done handling ICID request" << std::endl;
+    _server.sendInterest(icid_addr);
+
+    cout << "XcacheICIDHandler: done handling ICID request" << endl;
+    return 0;
 }

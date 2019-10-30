@@ -6,13 +6,17 @@
 #include <functional> // std::bind
 #include <iostream>
 
-XcacheQUICClient::XcacheQUICClient()
-	: quic(&XcacheQUICClient::client_callback, XCACHE_CLIENT) {
-
+XcacheQUICClient::XcacheQUICClient(const string& xcache_aid)
+    : quic(&XcacheQUICClient::client_callback, XCACHE_CLIENT) {
+    xcache_socket = make_unique<QUICXIASocket>(xcache_aid);
 }
 
 void XcacheQUICClient::updateTime() {
 	quic.updateTime();
+}
+
+int XcacheQUICClient::fd() {
+    return xcache_socket->fd();
 }
 
 int64_t XcacheQUICClient::nextWakeDelay(int64_t delay_max) {
@@ -20,11 +24,11 @@ int64_t XcacheQUICClient::nextWakeDelay(int64_t delay_max) {
 }
 
 // There's a packet on sockfd for us to process, after select()
-int XcacheQUICClient::incomingPacket(int sockfd) {
-	bytes_recv = picoquic_xia_recvfrom(sockfd, &addr_from, &addr_local,
+int XcacheQUICClient::incomingPacket() {
+	bytes_recv = picoquic_xia_recvfrom(fd(), &addr_from, &addr_local,
 			buffer, sizeof(buffer));
 	if(bytes_recv <= 0) {
-		cout << "ERROR recv on xiaquic sock " << sockfd << endl;
+		cout << "ERROR recv on xiaquic sock " << fd() << endl;
 	}
 	quic.updateTime();
 
@@ -64,7 +68,7 @@ int XcacheQUICClient::incomingPacket(int sockfd) {
 		}
 		// send out any outstanding stateless packets
 		cout << "Client: sending stateless packet out on network" << endl;
-		picoquic_xia_sendmsg(sockfd, sp->bytes, sp->length,
+		picoquic_xia_sendmsg(fd(), sp->bytes, sp->length,
 				&sp->addr_to, &sp->addr_local);
 		picoquic_delete_stateless_packet(sp);
 	}
@@ -96,7 +100,7 @@ int XcacheQUICClient::incomingPacket(int sockfd) {
 		if(rc == 0) {
 			if(send_length > 0) {
 				printf("Client: sending %ld byte packet\n", send_length);
-				(void)picoquic_xia_sendmsg(sockfd,
+				(void)picoquic_xia_sendmsg(fd(),
 						send_buffer, send_length,
 						&addr_from, &addr_local);
 			}
