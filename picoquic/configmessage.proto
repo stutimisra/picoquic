@@ -1,0 +1,13 @@
+syntax = "proto2";
+
+package configmessage;
+
+message Config {
+	required string name = 1;
+	required string ipaddr = 2;
+	required string iface = 3;
+	required string port = 4;
+	required string AD = 5;
+	required string HID = 6;
+	required string AID = 7;
+}

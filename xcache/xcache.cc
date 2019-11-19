@@ -45,9 +45,12 @@ int main()
     installSIGINTHandler();
 
     // Get XIDs from local config file
-    auto conf = LocalConfig::get_instance(CONFFILE);
-    auto xcache_aid = conf.get(XCACHE_AID);
-    auto test_cid = conf.get(TEST_CID);
+    // auto conf = LocalConfig::get_instance(CONFFILE);
+    // auto xcache_aid = conf.get(XCACHE_AID);
+    // auto test_cid = conf.get(TEST_CID);
+    //LocalConfig config;
+    std::string xcache_aid = "";
+    std::string test_cid = "";
     if (xcache_aid.size() == 0) {
         cout << "ERROR: XCACHE_AID entry missing in " << CONFFILE << endl;
         return -1;

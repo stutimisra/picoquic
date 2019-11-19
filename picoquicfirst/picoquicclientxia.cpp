@@ -20,8 +20,13 @@ extern "C" {
 #define CONFFILE "local.conf"
 #define THEIR_ADDR "THEIR_ADDR" // The THEIR_ADDR entry in config file
 #define CLIENT_AID "CLIENT_AID" // The CLIENT_AID entry in config file
-#define SERVER_AID "SERVER_AID" // The SERVER_AID entry in config file
 #define TICKET_STORE "TICKET_STORE"
+#define IFNAME "IFNAME"
+#define CONTROL_PORT "8295"
+#define CONTROL_IP "127.0.0.1"
+
+std::string SERVER_AID = "AID:69a4e068880cd40549405dfda6e794b0c7fdf192";
+std::string SERVER_ADDR = "RE AD:04f61c792990ec39f0af16c6a7c35b6807a61a63 HID:691b1cb51735f5dbbe42282b68e34f96cbfa39b2";
 
 // If there were multiple streams, we would track progress for them here
 struct callback_context_t {
@@ -133,7 +138,6 @@ int main()
 	int state = 0;
 	int retval = -1;
 	FILE* logfile = NULL;
-	int sockfd;
 
 	// Event loop parameters
 	int64_t delay_max = 10000000;
@@ -153,40 +157,54 @@ int main()
 	uint8_t send_buffer[1536];
 	size_t send_length = 0;
 
-	auto conf = LocalConfig::get_instance(CONFFILE);
-	auto server_addr = conf.get(THEIR_ADDR);
-	auto server_aid = conf.get(SERVER_AID);
-	auto client_aid = conf.get(CLIENT_AID);
-	const auto ticket_store_filename = conf.get(TICKET_STORE);
-	GraphPtr mydag;
-	sockaddr_x my_address;
-	int my_addrlen;
+	// read local config
+	
+	//server
+	sockaddr_x server_address;
+	std::string serverdagstr = SERVER_ADDR + " " + SERVER_AID;
+	Graph serverdag(serverdagstr);
+	serverdag.fill_sockaddr(&server_address);
+	int server_addrlen = sizeof(sockaddr_x);
 
-	// QUIC client
+	// 
+	LocalConfig conf;
+	addr_info_t myaddr;
+	std::string ticket_store_filename;
+	if(conf.configure(CONTROL_PORT, CONTROL_IP, myaddr) < 0)
+	{
+		goto client_done;
+	}
+
+	// Server address  - keeping that fixed
+	// auto server_addr = conf.get_their_addr();
+	// auto server_aid = conf.get_server_aid();
+	// int server_addrlen;
+
+	// auto conf = LocalConfig::get_instance(CONFFILE);
+	// auto server_addr = conf.get(THEIR_ADDR);
+	// auto server_aid = conf.get(SERVER_AID);
+	// auto client_aid = conf.get(CLIENT_AID);
+	// std::string client_ifname = conf.get(IFNAME);
+	ticket_store_filename = conf.get_ticket_store();
+
+	// // QUIC client
 	picoquic_quic_t *client;
 
 	// Callback context
 	struct callback_context_t callback_context;
 	memset(&callback_context, 0, sizeof(struct callback_context_t));
 
-	// Server address
-	sockaddr_x server_address;
-	int server_addrlen;
-	std::string serverdagstr = server_addr + " " + server_aid;
-	Graph serverdag(serverdagstr);
-	serverdag.fill_sockaddr(&server_address);
-	server_addrlen = sizeof(sockaddr_x);
-
-	// A socket to talk to server on
-	//sockfd = socket(server_address.ss_family, SOCK_DGRAM, IPPROTO_UDP);
-	sockfd = picoquic_xia_open_server_socket(client_aid.c_str(), mydag);
-	if(sockfd == INVALID_SOCKET) {
-		goto client_done;
-	}
-	std::cout << "CLIENTADDR: " << mydag->dag_string() << std::endl;
-	mydag->fill_sockaddr(&my_address);
-	my_addrlen = sizeof(sockaddr_x);
-	printf("Created socket to talk to server\n");
+	// // A socket to talk to server on
+	// //sockfd = socket(server_address.ss_family, SOCK_DGRAM, IPPROTO_UDP);
+	// // bind to socket and fill my addr
+	// sockfd = picoquic_xia_open_server_socket(client_aid.c_str(), mydag, client_ifname);
+	// if(sockfd == INVALID_SOCKET) {
+	// 	goto client_done;
+	// }
+	// std::cout << "CLIENTADDR: " << mydag->dag_string() << std::endl;
+	// mydag->fill_sockaddr(&my_address);
+	// my_addrlen = sizeof(sockaddr_x);
+	// printf("Created socket to talk to server\n");
 	state = 1; // socket created
 
 	// Create QUIC context for client
@@ -271,16 +289,16 @@ int main()
 	if(picoquic_prepare_packet(connection, current_time,
 				send_buffer, sizeof(send_buffer), &send_length,
 				(struct sockaddr_storage*)&server_address, &server_addrlen,
-				(struct sockaddr_storage*)&my_address, &my_addrlen)) {
+				(struct sockaddr_storage*)&myaddr.addr, &myaddr.addrlen)) {
 		printf("ERROR: preparing a QUIC packet to send\n");
 		goto client_done;
 	}
 	printf("Prepared packet of size %zu\n", send_length);
-	mydag->fill_sockaddr(&my_address);
+	myaddr.dag->fill_sockaddr(&myaddr.addr);
 	int bytes_sent;
 	if(send_length > 0) {
-		bytes_sent = picoquic_xia_sendmsg(sockfd, send_buffer,
-				(int) send_length, &server_address, &my_address);
+		bytes_sent = picoquic_xia_sendmsg(myaddr.sockfd, send_buffer,
+				(int) send_length, &server_address, &myaddr.addr, conf);
 		if(bytes_sent < 0) {
 			printf("ERROR: sending packet to server\n");
 			goto client_done;
@@ -294,7 +312,7 @@ int main()
 		delay_max = 10000000;
 
 		// Wait until data or timeout
-		bytes_recv = picoquic_xia_select(sockfd, &packet_from,
+		bytes_recv = picoquic_xia_select(myaddr.sockfd, &packet_from,
 				&packet_to, buffer, sizeof(buffer),
 				delta_t,
 				&current_time);
@@ -367,7 +385,8 @@ int main()
 		// We get here whether there was a packet or a timeout
 		send_length = PICOQUIC_MAX_PACKET_SIZE;
 		while(send_length > 0) {
-			// Send out all packets waiting to go
+		
+		// Send out all packets waiting to go
 		if(picoquic_prepare_packet(connection, current_time,
 					send_buffer, sizeof(send_buffer), &send_length,
 					NULL, NULL, NULL, NULL)) {
@@ -376,8 +395,8 @@ int main()
 		}
 		if(send_length > 0) {
 			printf("Sending packet of size %ld\n", send_length);
-			bytes_sent = picoquic_xia_sendmsg(sockfd, send_buffer,
-					(int) send_length, &server_address, &my_address);
+			bytes_sent = picoquic_xia_sendmsg(myaddr.sockfd, send_buffer,
+					(int) send_length, &server_address, &myaddr.addr, conf);
 			//printf("Sending a packet of size %d\n", (int)send_length);
 			if(bytes_sent <= 0) {
 				printf("ERROR sending packet to server\n");
@@ -412,7 +431,7 @@ client_done:
 			// fallthrough
 		case 1:
 			// TODO: Need to unregister this socket and AID at router
-			close(sockfd);
+			close(myaddr.sockfd);
 	};
 
 	return retval;

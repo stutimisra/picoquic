@@ -20,12 +20,18 @@ using NodePtr = std::unique_ptr<Node>;
 
 //extern "C" int picoquic_xia_open_server_socket(char* aid);
 
-//Returns a socket descriptor and an XIA address, with 'aid' as intent
+class LocalConfig;
+
 int picoquic_xia_open_server_socket(const char* aid, GraphPtr& my_addr);
+//Returns a socket descriptor and an XIA address, with 'aid' as intent
+int picoquic_xia_open_server_socket(const char* aid, GraphPtr& my_addr,
+	std::string ifname);
 
 // Get the IP address of an XIA Router we can send packets to
-int picoquic_xia_router_addr(struct sockaddr_in* router_addr);
-int picoquic_xia_router_control_addr(struct sockaddr_in* router_addr);
+int picoquic_xia_router_addr(struct sockaddr_in* router_addr, 
+	LocalConfig &conf);
+int picoquic_xia_router_control_addr(struct sockaddr_in* router_addr,
+	LocalConfig &conf);
 
 // Wait on a socket until data is available or timeout
 // Extract src and dest DAGs from the received XIA packet
@@ -45,7 +51,8 @@ int picoquic_xia_select(int sockfd, sockaddr_x* addr_from,
 // |  IP Header  |  XIA Header  |  Payload  |
 // '----------------------------------------'
 int picoquic_xia_sendmsg(int sockfd, uint8_t* bytes, int length,
-		sockaddr_x* peer_addr, sockaddr_x* local_addr);
+		sockaddr_x* peer_addr, sockaddr_x* local_addr, 
+		LocalConfig &conf);
 
 // Receive a packet from an XIA Router and extract XIA header info and payload
 int picoquic_xia_recvfrom(int sockfd, sockaddr_x* addr_from,
