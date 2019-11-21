@@ -27,6 +27,9 @@ int picoquic_xia_open_server_socket(const char* aid, GraphPtr& my_addr);
 int picoquic_xia_open_server_socket(const char* aid, GraphPtr& my_addr,
 	std::string ifname);
 
+int picoquic_xia_open_server_socket(const char* aid, GraphPtr& my_addr, 
+    std::string ifname, LocalConfig &conf);
+
 // Get the IP address of an XIA Router we can send packets to
 int picoquic_xia_router_addr(struct sockaddr_in* router_addr, 
 	LocalConfig &conf);

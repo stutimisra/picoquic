@@ -9,7 +9,9 @@
 #include "xiaapi.hpp"
 #include "dagaddr.hpp"
 
-typedef struct addr_info_t {
+#include "configmessage.pb.h"
+
+struct addr_info_t {
 	int sockfd;
 	GraphPtr dag;
 	sockaddr_x addr;
@@ -23,10 +25,13 @@ class LocalConfig {
     	LocalConfig();
 		static LocalConfig& get_instance(const std::string& confFile);
         std::string get(const std::string& param);
-        int configure(std::string control_port, std::string control_addr, addr_info_t &addr);
+        int configure(std::string control_port, std::string control_addr, 
+            addr_info_t &raddr, addr_info_t &saddr);
 		void *config_controller();
+		void set_aid(std::string aid);
 		std::string get_raddr();
 		std::string get_rport();
+        std::string get_serverdag_str();
 		std::string get_our_addr();
 		std::string get_their_addr();
 		std::string get_server_aid();
@@ -35,11 +40,26 @@ class LocalConfig {
     private:
         LocalConfig(const std::string& confFile);
 		void stripInputLine(std::string& line);
+		void set_config(configmessage::Config myconfig);
         std::unordered_map<std::string, std::string> _conf;
         int control_socket;
         pthread_t control_thread;
-        GraphPtr mydag;
-        sockaddr_x *saddr;
+        std::string aid;
+        addr_info_t *router_addr;
+        addr_info_t *server_addr;
+        std::string _name;
+        // my interface with the router
+        std::string _iface;
+        // router's IP address
+        std::string _r_addr;
+        // router's Port
+        std::string _r_port;
+        // router's AD
+        std::string _r_ad;
+        // router's HID
+        std::string _r_hid;
+        // server dagstr
+        std::string serverdag_str;
 };
 
 #endif //XIA_LOCAL_CONFIG_H
