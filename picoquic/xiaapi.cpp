@@ -212,8 +212,8 @@ void xidToLocalDAG (const char* xid, GraphPtr& addr, LocalConfig &conf)
     auto our_addr = conf.get_our_addr();
     std::string xidstr(xid);
     std::string xiaaddrstr = our_addr +  " " + xidstr;
-    std::cout<<"xid "<<xid<<" our_addr "<<our_addr<<" "<<"xidstr "<<xidstr<<std::endl;
-    std::cout << "Our address: " << xiaaddrstr << std::endl;
+    //    std::cout<<"xid "<<xid<<" our_addr "<<our_addr<<" "<<"xidstr "<<xidstr<<std::endl;
+    std::cout << "Our address: " << xiaaddrstr <<" len : "<<xiaaddrstr.length()<<std::endl;
     addr.reset(new Graph(xiaaddrstr));
 }
 

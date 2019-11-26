@@ -91,7 +91,7 @@ void LocalConfig::stripInputLine(std::string& line)
 			line.end());
 }
 
-int LocalConfig::int configure(std::string control_port, std::string control_addr, 
+int LocalConfig::configure(std::string control_port, std::string control_addr, 
             addr_info_t &raddr, addr_info_t &saddr)
 {
    
@@ -174,8 +174,8 @@ void *LocalConfig::config_controller()
 	struct sockaddr_storage their_addr;
 	socklen_t addr_size = sizeof(struct sockaddr);
 	int new_fd;
-	char buf[256];
-	bzero(buf, 256);
+	char buf[512];
+	bzero(buf, 512);
 	new_fd = accept(this->control_socket, (struct sockaddr *)&their_addr, 
 		&addr_size);
 	if(new_fd < 0)
@@ -192,7 +192,7 @@ void *LocalConfig::config_controller()
  		}
 
 	}
-	int bytes_recvd = recv(new_fd, buf, 256, 0);
+	int bytes_recvd = recv(new_fd, buf, 512, 0);
 	if(bytes_recvd < 0)
  	{
  		switch(errno)
@@ -220,16 +220,19 @@ void *LocalConfig::config_controller()
  	myconfig.ParseFromString(s);
  	set_config(myconfig);
 
- 	this->serverdag_str = myconfig.serverdag;
- 	server_addr->dag = Graph(myconfig.serverdag);
- 	server_addr->dag->fill_sockaddr(&server_addr->addr);
- 	std::cout<<"serverdag is "<<myconfig.get_serverdag_str()<<std::endl;
+
+ 	this->serverdag_str = myconfig.serverdag();
+	std::cout<<"serverdag is "<<myconfig.serverdag()<<" len: "<<myconfig.serverdag().length()<<std::endl;
+	server_addr->dag.reset(new Graph(myconfig.serverdag()));
+	server_addr->dag->fill_sockaddr(&server_addr->addr);
+
  	router_addr->sockfd = picoquic_xia_open_server_socket(this->aid.c_str(), router_addr->dag,
  		this->_iface, *this);
  	if(router_addr->sockfd < 0)
  		return NULL;
  	router_addr->dag->fill_sockaddr(&router_addr->addr);
  	router_addr->addrlen = sizeof(sockaddr_x);
+
  	return (void *)1;
 }
 
@@ -246,6 +249,7 @@ void LocalConfig::set_config(configmessage::Config myconfig)
 	this->_r_port = myconfig.port();
 	this->_r_ad = myconfig.ad();
 	this->_r_hid = myconfig.hid();
+	this->serverdag_str = myconfig.serverdag.
 }
 
 std::string LocalConfig::get_raddr()

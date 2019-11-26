@@ -183,7 +183,8 @@ int main()
 	// sockaddr_x my_addr;
 	addr_info_t myaddr;
 	LocalConfig conf;
-	if(conf.configure(CONTROL_PORT, CONTROL_IP, myaddr) < 0)
+	addr_info_t peer_addr;
+	if(conf.configure(CONTROL_PORT, CONTROL_IP, myaddr, peer_addr) < 0)
 	{
 		goto server_done;
 	}	
