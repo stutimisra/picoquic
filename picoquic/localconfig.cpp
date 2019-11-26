@@ -249,7 +249,7 @@ void LocalConfig::set_config(configmessage::Config myconfig)
 	this->_r_port = myconfig.port();
 	this->_r_ad = myconfig.ad();
 	this->_r_hid = myconfig.hid();
-	this->serverdag_str = myconfig.serverdag.
+	this->serverdag_str = myconfig.serverdag();
 }
 
 std::string LocalConfig::get_raddr()
