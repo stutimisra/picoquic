@@ -172,7 +172,6 @@ int main()
 	addr_info_t myaddr;
 	addr_info_t serveraddr;
 	std::string ticket_store_filename;
-	conf.set_aid(MY_AID);
 	if(conf.configure(CONTROL_PORT, CONTROL_IP, myaddr, serveraddr) < 0)
 	{
 		goto client_done;

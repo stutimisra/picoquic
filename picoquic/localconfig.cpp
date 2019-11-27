@@ -236,14 +236,10 @@ void *LocalConfig::config_controller()
  	return (void *)1;
 }
 
-void LocalConfig::set_aid(std::string aid)
-{
-	this->aid = aid;
-}
-
 void LocalConfig::set_config(configmessage::Config myconfig)
 {
 	this->_name = myconfig.name();
+	this->aid = myconfig.aid();
 	this->_r_addr = myconfig.ipaddr();
 	this->_iface = myconfig.iface();
 	this->_r_port = myconfig.port();

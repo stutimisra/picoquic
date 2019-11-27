@@ -28,7 +28,6 @@ class LocalConfig {
         int configure(std::string control_port, std::string control_addr, 
             addr_info_t &raddr, addr_info_t &saddr);
 		void *config_controller();
-		void set_aid(std::string aid);
 		std::string get_raddr();
 		std::string get_rport();
         std::string get_serverdag_str();
