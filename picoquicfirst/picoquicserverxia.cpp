@@ -20,7 +20,7 @@ extern "C" {
 #define SERVER_AID "SERVER_AID"
 #define IFNAME "IFNAME"
 #define CONTROL_PORT "8295"
-#define CONTROL_IP "10.0.3.128"
+#define CONTROL_IP "10.0.1.133"
 
 // typedef struct addr_info_t {
 // 	int sockfd;

@@ -21,6 +21,8 @@ extern "C" {
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <ifaddrs.h>
+#include <stdio.h>
+#include <errno.h>
 
 // The protobuf defs to configure forwarding table on router
 #include "configrequest.pb.h"
@@ -162,6 +164,7 @@ static int _send_server_cmd(std::string cmd, LocalConfig &conf)
     }
     if(connect(rsockfd, (struct sockaddr*)&router_addr,sizeof(router_addr))) {
         std::cout << "ERROR: talking to router for route setup" << std::endl;
+        perror("\n");
         return -1;
     }
     std::cout << "Connected to router" << std::endl;
@@ -488,6 +491,7 @@ int picoquic_xia_router_control_addr(struct sockaddr_in* router_addr,
     // 
     auto raddr = conf.get_raddr();
     auto rcport = conf.get_rport();
+    std::cout<<"Connecting to "<<raddr<<":"<<rcport<<std::endl;
     // TODO: future calls should just return address without reading.
     memset(router_addr, 0, sizeof(struct sockaddr_in));
     router_addr->sin_port = htons(std::stoi(rcport));
