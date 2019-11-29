@@ -124,19 +124,7 @@ int LocalConfig::configure(std::string control_port, std::string control_addr,
 
   if (bind(sock_fd, (struct sockaddr *)&addr,
 		   sizeof(addr)) < 0) {
-
-	switch(errno)
-	{
-		case EACCES : std::cout<<"Access"; exit(1);
-		case EADDRINUSE: std::cout<<"Address in use "; exit(1);
-		case EBADF : std::cout<<"Bad socket"; exit(1);
-		case EINVAL : std::cout<<"already bound"; exit(1);
-		case EADDRNOTAVAIL: std::cout<<"interface not local"; exit(1);
-		case EFAULT: std::cout<<"EFAULT"; exit(1);
-		default : std::cout<<"something else"; exit(1);
-	}
-	printf("open_listen_socket: Failed to bind \
-    listening socket to port %s\n", control_port);
+  	perror("\n");
 	return -1;
   }
 
@@ -151,16 +139,6 @@ int LocalConfig::configure(std::string control_port, std::string control_addr,
  this->router_addr = &raddr;
  this->server_addr = &saddr;
 
- std::cout<<"Bound on"<<sock_fd<<std::endl;
- //freeaddrinfo(res);
- //std::cout<<"freeaddrinfo"<<std::endl;
-
- // if(pthread_create(&control_thread, NULL, config_controller, NULL) < 0)
- // {
- // 	printf("Failed to create a thread\n");
- // 	return -1;
- // }
- // 
  void *ret = config_controller();
  if(!ret)
    return -1;

@@ -36,6 +36,8 @@ class LocalConfig {
 		std::string get_server_aid();
 		std::string get_router_iface();
 		std::string get_ticket_store();
+        std::string control_addr;
+        std::string control_port;
     private:
         LocalConfig(const std::string& confFile);
 		void stripInputLine(std::string& line);

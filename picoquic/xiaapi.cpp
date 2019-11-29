@@ -162,6 +162,21 @@ static int _send_server_cmd(std::string cmd, LocalConfig &conf)
         std::cout << "ERROR: creating socket for router config" << std::endl;
         return -1;
     }
+
+    struct sockaddr_in addr;
+    bzero((char *)&addr, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = inet_addr(conf.get_router_iface().c_str());
+    std::cout<<"Set sin addr to"<<conf.get_router_iface()<<std::endl;
+    
+    if (bind(rsockfd, (struct sockaddr *)&addr,
+           sizeof(addr)) < 0) {
+        perror("\n");
+        return -1;
+    }
+    char str[64];
+    inet_ntop(AF_INET, &(router_addr.sin_addr), str, INET_ADDRSTRLEN);
+    std::cout<<"Want to connect to "<<str<<std::endl;
     if(connect(rsockfd, (struct sockaddr*)&router_addr,sizeof(router_addr))) {
         std::cout << "ERROR: talking to router for route setup" << std::endl;
         perror("\n");
@@ -235,7 +250,6 @@ auto buildRouteRemoveCommandForXID(std::string& xidtype,
 {
     // auto conf = LocalConfig::get_instance(CONFFILE);
     // auto router_iface = conf.get(ROUTER_IFACE);
-    auto router_iface = conf.get_router_iface();
     std::ostringstream cmd;
     std::string xidstr(xid);
     cmd << "./bin/xroute -r " << xidtype << "," << xidstr;
@@ -490,7 +504,7 @@ int picoquic_xia_router_control_addr(struct sockaddr_in* router_addr,
     // auto rcport = std::stoi(conf.get(ROUTER_CONTROL_PORT));
     // 
     auto raddr = conf.get_raddr();
-    auto rcport = conf.get_rport();
+    auto rcport = "9854";//conf.get_rport();
     std::cout<<"Connecting to "<<raddr<<":"<<rcport<<std::endl;
     // TODO: future calls should just return address without reading.
     memset(router_addr, 0, sizeof(struct sockaddr_in));
