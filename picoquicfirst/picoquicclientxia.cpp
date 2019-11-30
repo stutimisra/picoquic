@@ -169,6 +169,8 @@ int main()
 
 	// 
 	LocalConfig conf;
+	conf.control_addr = CONTROL_IP;
+	conf.control_port = CONTROL_PORT;
 	addr_info_t myaddr;
 	addr_info_t serveraddr;
 	std::string ticket_store_filename;
@@ -187,7 +189,7 @@ int main()
 	// auto server_aid = conf.get(SERVER_AID);
 	// auto client_aid = conf.get(CLIENT_AID);
 	// std::string client_ifname = conf.get(IFNAME);
-	ticket_store_filename = conf.get_ticket_store();
+	ticket_store_filename = TICKET_STORE; //conf.get_ticket_store();
 
 	// // QUIC client
 	picoquic_quic_t *client;

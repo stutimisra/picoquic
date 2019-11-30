@@ -267,7 +267,7 @@ auto buildRouteCommandForXID(std::string& xidtype,
     // auto router_iface = conf.get(ROUTER_IFACE);
 
     // Set route for AID to be sent to our bound address
-    auto router_iface = conf.get_router_iface();
+    auto router_iface = 0;//conf.get_router_iface();
     std::ostringstream cmd;
     std::string xidstr(xid);
     cmd << "./bin/xroute -a " << xidtype << "," << xidstr << ","
@@ -420,6 +420,8 @@ int picoquic_xia_sendmsg(int sockfd, uint8_t* bytes, int length,
 {
     Graph addr_to(peer_addr);
     Graph addr_from(local_addr);
+    std::cout<<"addr_to "<<addr_to.dag_string()<<std::endl;
+    std::cout<<"addr_from "<<addr_from.dag_string()<<std::endl;
     // Convert addr to wire format
     // Create XIA Header
     struct click_xia xiah;

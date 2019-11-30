@@ -246,6 +246,8 @@ int main()
 		int64_t delta_t = picoquic_get_next_wake_delay(server, current_time,
 				delay_max);
 
+		printf("Going into select\n");
+
 		bytes_recv = picoquic_xia_select(myaddr.sockfd, &addr_from,
 				&addr_local, buffer, sizeof(buffer),
 				delta_t,
