@@ -420,8 +420,8 @@ int picoquic_xia_sendmsg(int sockfd, uint8_t* bytes, int length,
 {
     Graph addr_to(peer_addr);
     Graph addr_from(local_addr);
-    std::cout<<"addr_to "<<addr_to.dag_string()<<std::endl;
-    std::cout<<"addr_from "<<addr_from.dag_string()<<std::endl;
+    // std::cout<<"addr_to "<<addr_to.dag_string()<<std::endl;
+    // std::cout<<"addr_from "<<addr_from.dag_string()<<std::endl;
     // Convert addr to wire format
     // Create XIA Header
     struct click_xia xiah;

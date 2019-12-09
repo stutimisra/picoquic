@@ -9,6 +9,7 @@
 // C includes
 #include <string.h> // memset
 #include <stdio.h>
+#include <pthread.h>
 
 extern "C" {
 #include "picoquic.h" // picoquic_create, states, err, pkt types, contexts
@@ -24,10 +25,6 @@ extern "C" {
 #define IFNAME "IFNAME"
 #define CONTROL_PORT "8295"
 #define CONTROL_IP "10.0.1.130"
-
-std::string MY_AID = "AID:69a4e068880cd40549405dfda6e794b0c7fdf195";
-std::string SERVER_AID = "AID:69a4e068880cd40549405dfda6e794b0c7fdf192";
-std::string SERVER_ADDR = "RE AD:04f61c792990ec39f0af16c6a7c35b6807a61a63 HID:691b1cb51735f5dbbe42282b68e34f96cbfa39b2";
 
 // If there were multiple streams, we would track progress for them here
 struct callback_context_t {
@@ -205,7 +202,7 @@ int main()
 	// if(sockfd == INVALID_SOCKET) {
 	// 	goto client_done;
 	// }
-	// std::cout << "CLIENTADDR: " << mydag->dag_string() << std::endl;
+	// std::cout << "CLIENTADDR: " << mydag->dag_string().c_str() << std::endl;
 	// mydag->fill_sockaddr(&my_address);
 	// my_addrlen = sizeof(sockaddr_x);
 	// printf("Created socket to talk to server\n");
@@ -289,16 +286,18 @@ int main()
 	}
 	printf("Zero RTT available: %d\n", zero_rtt_available);
 
+	pthread_mutex_lock(&conf.lock);
 	// Send a packet to get the connection establishment started
 	if(picoquic_prepare_packet(connection, current_time,
 				send_buffer, sizeof(send_buffer), &send_length,
 				(struct sockaddr_storage*)&serveraddr.addr, &serveraddr.addrlen,
 				(struct sockaddr_storage*)&myaddr.addr, &myaddr.addrlen)) {
 		printf("ERROR: preparing a QUIC packet to send\n");
+		pthread_mutex_unlock(&conf.lock);
 		goto client_done;
 	}
 	printf("Prepared packet of size %zu\n", send_length);
-	myaddr.dag->fill_sockaddr(&myaddr.addr);
+	//myaddr.dag->fill_sockaddr(&myaddr.addr);
 	int bytes_sent;
 	if(send_length > 0) {
 		bytes_sent = picoquic_xia_sendmsg(myaddr.sockfd, send_buffer,
@@ -307,8 +306,10 @@ int main()
 			printf("ERROR: sending packet to server\n");
 			goto client_done;
 		}
-		printf("Sent %d byte packet to server\n", bytes_sent);
+		printf("Sent %d byte packet to server: %s) from me: %s\n", bytes_sent,
+		 serveraddr.dag->dag_string().c_str(), myaddr.dag->dag_string().c_str());
 	}
+	pthread_mutex_unlock(&conf.lock);
 
 	// Wait for incoming packets
 	while(picoquic_get_cnx_state(connection) != picoquic_state_disconnected) {
@@ -377,8 +378,8 @@ int main()
 			// Waited too long. Close connection
 			if(current_time > callback_context.last_interaction_time
 					&& current_time - callback_context.last_interaction_time
-					    > 10000000ull) {
-				printf("No progress for 10 seconds. Closing\n");
+					    > 60000000ull) {
+				printf("No progress for 60 seconds. Closing\n");
 				picoquic_close(connection, 0);
 				connection = NULL;
 				break;
@@ -389,23 +390,30 @@ int main()
 		// We get here whether there was a packet or a timeout
 		send_length = PICOQUIC_MAX_PACKET_SIZE;
 		while(send_length > 0) {
-		
-		// Send out all packets waiting to go
-		if(picoquic_prepare_packet(connection, current_time,
-					send_buffer, sizeof(send_buffer), &send_length,
-					NULL, NULL, NULL, NULL)) {
-			printf("ERROR sending QUIC packet\n");
-			goto client_done;
-		}
-		if(send_length > 0) {
-			printf("Sending packet of size %ld\n", send_length);
-			bytes_sent = picoquic_xia_sendmsg(myaddr.sockfd, send_buffer,
-					(int) send_length, &serveraddr.addr, &myaddr.addr, conf);
-			//printf("Sending a packet of size %d\n", (int)send_length);
-			if(bytes_sent <= 0) {
-				printf("ERROR sending packet to server\n");
+			//sleep(5); // add a delay make sure the configuration updates
+			// Send out all packets waiting to go
+			pthread_mutex_lock(&conf.lock);
+			printf("Locking \n");
+			if(picoquic_prepare_packet(connection, current_time,
+						send_buffer, sizeof(send_buffer), &send_length,
+						NULL, NULL, NULL, NULL)) {
+				printf("ERROR sending QUIC packet\n");
+				pthread_mutex_unlock(&conf.lock);
+				goto client_done;
 			}
-		}
+			if(send_length > 0) {
+				printf("Sending packet of size %ld\n", send_length);
+				bytes_sent = picoquic_xia_sendmsg(myaddr.sockfd, send_buffer,
+						(int) send_length, &serveraddr.addr, &myaddr.addr, conf);
+				//printf("Sending a packet of size %d\n", (int)send_length);
+				if(bytes_sent <= 0) {
+					printf("ERROR sending packet to server\n");
+				}
+				printf("Sent %d byte packet to server: %s) from me: %s\n", bytes_sent, 
+					serveraddr.dag->dag_string().c_str(), myaddr.dag->dag_string().c_str());
+			}
+			printf("Unlocking \n");
+			pthread_mutex_unlock(&conf.lock);
 		}
 
 		// How long before we timeout waiting for more packets

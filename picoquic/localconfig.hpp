@@ -3,6 +3,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <thread>
 #include <pthread.h>
 
 // XIA support
@@ -27,27 +28,30 @@ class LocalConfig {
         std::string get(const std::string& param);
         int configure(std::string control_port, std::string control_addr, 
             addr_info_t &raddr, addr_info_t &saddr);
-		void *config_controller();
-		std::string get_raddr();
+        static void *config_controller(void *arg);
+        int get_control_socket();
+        bool set_serverdag_str(std::string serverdag_str);
+        static void set_config(LocalConfig &conf, configmessage::Config myconfig); 
+        static void update_serveraddr(LocalConfig &conf, std::string serverdag);     
+        static void update_routeraddr(LocalConfig &conf, configmessage::Config myconfig);  
+ 		std::string get_raddr();
 		std::string get_rport();
         std::string get_serverdag_str();
 		std::string get_our_addr();
-		std::string get_their_addr();
-		std::string get_server_aid();
 		std::string get_router_iface();
-		std::string get_ticket_store();
+        std::string get_aid();
         std::string control_addr;
         std::string control_port;
+        addr_info_t *router_addr;
+        addr_info_t *server_addr;
+        pthread_mutex_t lock;
     private:
         LocalConfig(const std::string& confFile);
 		void stripInputLine(std::string& line);
-		void set_config(configmessage::Config myconfig);
         std::unordered_map<std::string, std::string> _conf;
         int control_socket;
         pthread_t control_thread;
         std::string aid;
-        addr_info_t *router_addr;
-        addr_info_t *server_addr;
         std::string _name;
         // my interface with the router
         std::string _iface;
@@ -61,6 +65,9 @@ class LocalConfig {
         std::string _r_hid;
         // server dagstr
         std::string serverdag_str;
+        // controller thread
+        std::thread controller_thread;
+        int loop;
 };
 
 #endif //XIA_LOCAL_CONFIG_H
