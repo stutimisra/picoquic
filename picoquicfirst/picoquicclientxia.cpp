@@ -297,7 +297,7 @@ int main()
 		goto client_done;
 	}
 	printf("Prepared packet of size %zu\n", send_length);
-	//myaddr.dag->fill_sockaddr(&myaddr.addr);
+	myaddr.dag->fill_sockaddr(&myaddr.addr);
 	int bytes_sent;
 	if(send_length > 0) {
 		bytes_sent = picoquic_xia_sendmsg(myaddr.sockfd, send_buffer,
@@ -393,7 +393,6 @@ int main()
 			//sleep(5); // add a delay make sure the configuration updates
 			// Send out all packets waiting to go
 			pthread_mutex_lock(&conf.lock);
-			printf("Locking \n");
 			if(picoquic_prepare_packet(connection, current_time,
 						send_buffer, sizeof(send_buffer), &send_length,
 						NULL, NULL, NULL, NULL)) {
@@ -412,7 +411,6 @@ int main()
 				printf("Sent %d byte packet to server: %s) from me: %s\n", bytes_sent, 
 					serveraddr.dag->dag_string().c_str(), myaddr.dag->dag_string().c_str());
 			}
-			printf("Unlocking \n");
 			pthread_mutex_unlock(&conf.lock);
 		}
 

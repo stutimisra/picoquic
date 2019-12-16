@@ -206,10 +206,8 @@ void *LocalConfig::config_controller(void *arg)
 	 	printf("Received new config from the configurator\n");
 
 	 	pthread_mutex_lock(&conf->lock);
-	 	printf("Locking\n");
 	 	LocalConfig::update_serveraddr(*conf, myconfig.serverdag());
 		LocalConfig::update_routeraddr(*conf, myconfig);
-		printf("Unlocking \n");
 		pthread_mutex_unlock(&conf->lock);
 		close(new_fd);
 	 	
