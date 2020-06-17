@@ -1,4 +1,4 @@
-#include "localconfig.hpp"
+ #include "localconfig.hpp"
 // XIA support
 #include "xiaapi.hpp"
 #include "dagaddr.hpp"
@@ -24,7 +24,7 @@ extern "C" {
 #define TICKET_STORE "TICKET_STORE"
 #define IFNAME "IFNAME"
 #define CONTROL_PORT "8295"
-#define CONTROL_IP "10.0.1.130"
+#define CONTROL_IP "10.0.1.131"
 
 // If there were multiple streams, we would track progress for them here
 struct callback_context_t {
@@ -296,7 +296,7 @@ int main()
 		pthread_mutex_unlock(&conf.lock);
 		goto client_done;
 	}
-	printf("Prepared packet of size %zu\n", send_length);
+	printf("Prepared packet of size %u\n", send_length);
 	myaddr.dag->fill_sockaddr(&myaddr.addr);
 	int bytes_sent;
 	if(send_length > 0) {
