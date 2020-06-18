@@ -20,12 +20,23 @@ using NodePtr = std::unique_ptr<Node>;
 
 //extern "C" int picoquic_xia_open_server_socket(char* aid);
 
-//Returns a socket descriptor and an XIA address, with 'aid' as intent
+class LocalConfig;
+
 int picoquic_xia_open_server_socket(const char* aid, GraphPtr& my_addr);
+//Returns a socket descriptor and an XIA address, with 'aid' as intent
+int picoquic_xia_open_server_socket(const char* aid, GraphPtr& my_addr,
+	std::string ifname);
+
+int picoquic_xia_open_server_socket(const char* aid, GraphPtr& my_addr, 
+    std::string ifname, LocalConfig &conf);
 
 // Get the IP address of an XIA Router we can send packets to
+int picoquic_xia_router_addr(struct sockaddr_in* router_addr, 
+	LocalConfig &conf);
 int picoquic_xia_router_addr(struct sockaddr_in* router_addr);
 int picoquic_xia_router_control_addr(struct sockaddr_in* router_addr);
+int picoquic_xia_router_control_addr(struct sockaddr_in* router_addr,
+	LocalConfig &conf);
 
 // Wait on a socket until data is available or timeout
 // Extract src and dest DAGs from the received XIA packet
@@ -45,7 +56,10 @@ int picoquic_xia_select(int sockfd, sockaddr_x* addr_from,
 // |  IP Header  |  XIA Header  |  Payload  |
 // '----------------------------------------'
 int picoquic_xia_sendmsg(int sockfd, uint8_t* bytes, int length,
-		sockaddr_x* peer_addr, sockaddr_x* local_addr);
+		sockaddr_x* peer_addr, sockaddr_x* local_addr, 
+		LocalConfig &conf);
+int picoquic_xia_sendmsg(int sockfd, uint8_t* bytes, int length,
+        sockaddr_x* peer_addr, sockaddr_x* local_addr);
 
 // Receive a packet from an XIA Router and extract XIA header info and payload
 int picoquic_xia_recvfrom(int sockfd, sockaddr_x* addr_from,
@@ -56,10 +70,17 @@ int picoquic_xia_recvfrom(int sockfd, sockaddr_x* addr_from,
 // Currently, there is no check to ensure CID is on disk.
 int picoquic_xia_serve_cid(int xcachesockfd, const char* cid,
 		GraphPtr& cid_addr);
+int picoquic_xia_serve_cid(int xcachesockfd, const char* cid,
+		GraphPtr& cid_addr, LocalConfig& conf);
 
 int picoquic_xia_icid_request(int xcachesockfd,
         sockaddr_x* cid_addr, sockaddr_x* our_addr);
+int picoquic_xia_icid_request(int xcachesockfd,
+        sockaddr_x* cid_addr, sockaddr_x* our_addr, LocalConfig conf);
 
 int picoquic_xia_unserve_cid(const char* cid);
+int picoquic_xia_unserve_cid(const char* cid, LocalConfig &conf);
 int picoquic_xia_unserve_aid(const char* aid);
+int picoquic_xia_unserve_aid(const char* aid, LocalConfig &conf);
+
 #endif //PICOQUIC_XIAAPI_H

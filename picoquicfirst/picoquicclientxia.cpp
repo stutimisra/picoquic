@@ -1,4 +1,4 @@
-#include "localconfig.hpp"
+ #include "localconfig.hpp"
 // XIA support
 #include "xiaapi.hpp"
 #include "dagaddr.hpp"
@@ -9,6 +9,7 @@
 // C includes
 #include <string.h> // memset
 #include <stdio.h>
+#include <pthread.h>
 
 extern "C" {
 #include "picoquic.h" // picoquic_create, states, err, pkt types, contexts
@@ -20,8 +21,10 @@ extern "C" {
 #define CONFFILE "local.conf"
 #define THEIR_ADDR "THEIR_ADDR" // The THEIR_ADDR entry in config file
 #define CLIENT_AID "CLIENT_AID" // The CLIENT_AID entry in config file
-#define SERVER_AID "SERVER_AID" // The SERVER_AID entry in config file
 #define TICKET_STORE "TICKET_STORE"
+#define IFNAME "IFNAME"
+#define CONTROL_PORT "8295"
+#define CONTROL_IP "10.0.1.131"
 
 // If there were multiple streams, we would track progress for them here
 struct callback_context_t {
@@ -133,7 +136,6 @@ int main()
 	int state = 0;
 	int retval = -1;
 	FILE* logfile = NULL;
-	int sockfd;
 
 	// Event loop parameters
 	int64_t delay_max = 10000000;
@@ -153,40 +155,57 @@ int main()
 	uint8_t send_buffer[1536];
 	size_t send_length = 0;
 
-	auto conf = LocalConfig::get_instance(CONFFILE);
-	auto server_addr = conf.get(THEIR_ADDR);
-	auto server_aid = conf.get(SERVER_AID);
-	auto client_aid = conf.get(CLIENT_AID);
-	const auto ticket_store_filename = conf.get(TICKET_STORE);
-	GraphPtr mydag;
-	sockaddr_x my_address;
-	int my_addrlen;
+	// read local config
+	
+	//server
+	// sockaddr_x server_address;
+	// std::string serverdagstr = SERVER_ADDR + " " + SERVER_AID;
+	// Graph serverdag(serverdagstr);
+	// serverdag.fill_sockaddr(&server_address);
+	// int server_addrlen = sizeof(sockaddr_x);
 
-	// QUIC client
+	// 
+	LocalConfig conf;
+	conf.control_addr = CONTROL_IP;
+	conf.control_port = CONTROL_PORT;
+	addr_info_t myaddr;
+	addr_info_t serveraddr;
+	std::string ticket_store_filename;
+	if(conf.configure(CONTROL_PORT, CONTROL_IP, myaddr, serveraddr) < 0)
+	{
+		goto client_done;
+	}
+
+	// Server address  - keeping that fixed
+	// auto server_addr = conf.get_their_addr();
+	// auto server_aid = conf.get_server_aid();
+	// int server_addrlen;
+
+	// auto conf = LocalConfig::get_instance(CONFFILE);
+	// auto server_addr = conf.get(THEIR_ADDR);
+	// auto server_aid = conf.get(SERVER_AID);
+	// auto client_aid = conf.get(CLIENT_AID);
+	// std::string client_ifname = conf.get(IFNAME);
+	ticket_store_filename = TICKET_STORE; //conf.get_ticket_store();
+
+	// // QUIC client
 	picoquic_quic_t *client;
 
 	// Callback context
 	struct callback_context_t callback_context;
 	memset(&callback_context, 0, sizeof(struct callback_context_t));
 
-	// Server address
-	sockaddr_x server_address;
-	int server_addrlen;
-	std::string serverdagstr = server_addr + " " + server_aid;
-	Graph serverdag(serverdagstr);
-	serverdag.fill_sockaddr(&server_address);
-	server_addrlen = sizeof(sockaddr_x);
-
-	// A socket to talk to server on
-	//sockfd = socket(server_address.ss_family, SOCK_DGRAM, IPPROTO_UDP);
-	sockfd = picoquic_xia_open_server_socket(client_aid.c_str(), mydag);
-	if(sockfd == INVALID_SOCKET) {
-		goto client_done;
-	}
-	std::cout << "CLIENTADDR: " << mydag->dag_string() << std::endl;
-	mydag->fill_sockaddr(&my_address);
-	my_addrlen = sizeof(sockaddr_x);
-	printf("Created socket to talk to server\n");
+	// // A socket to talk to server on
+	// //sockfd = socket(server_address.ss_family, SOCK_DGRAM, IPPROTO_UDP);
+	// // bind to socket and fill my addr
+	// sockfd = picoquic_xia_open_server_socket(client_aid.c_str(), mydag, client_ifname);
+	// if(sockfd == INVALID_SOCKET) {
+	// 	goto client_done;
+	// }
+	// std::cout << "CLIENTADDR: " << mydag->dag_string().c_str() << std::endl;
+	// mydag->fill_sockaddr(&my_address);
+	// my_addrlen = sizeof(sockaddr_x);
+	// printf("Created socket to talk to server\n");
 	state = 1; // socket created
 
 	// Create QUIC context for client
@@ -235,7 +254,7 @@ int main()
 			client, // QUIC context
 			picoquic_null_connection_id,        // initial connection ID
 			picoquic_null_connection_id,        // remote_connection ID
-			(struct sockaddr*) &server_address, // Address to
+			(struct sockaddr*) &serveraddr.addr, // Address to
 			current_time,   // start time
 			0,              // preferred version
 			"localhost",    // Server name identifier
@@ -267,26 +286,30 @@ int main()
 	}
 	printf("Zero RTT available: %d\n", zero_rtt_available);
 
+	pthread_mutex_lock(&conf.lock);
 	// Send a packet to get the connection establishment started
 	if(picoquic_prepare_packet(connection, current_time,
 				send_buffer, sizeof(send_buffer), &send_length,
-				(struct sockaddr_storage*)&server_address, &server_addrlen,
-				(struct sockaddr_storage*)&my_address, &my_addrlen)) {
+				(struct sockaddr_storage*)&serveraddr.addr, &serveraddr.addrlen,
+				(struct sockaddr_storage*)&myaddr.addr, &myaddr.addrlen)) {
 		printf("ERROR: preparing a QUIC packet to send\n");
+		pthread_mutex_unlock(&conf.lock);
 		goto client_done;
 	}
 	printf("Prepared packet of size %zu\n", send_length);
-	mydag->fill_sockaddr(&my_address);
+	myaddr.dag->fill_sockaddr(&myaddr.addr);
 	int bytes_sent;
 	if(send_length > 0) {
-		bytes_sent = picoquic_xia_sendmsg(sockfd, send_buffer,
-				(int) send_length, &server_address, &my_address);
+		bytes_sent = picoquic_xia_sendmsg(myaddr.sockfd, send_buffer,
+				(int) send_length, &serveraddr.addr, &myaddr.addr, conf);
 		if(bytes_sent < 0) {
 			printf("ERROR: sending packet to server\n");
 			goto client_done;
 		}
-		printf("Sent %d byte packet to server\n", bytes_sent);
+		printf("Sent %d byte packet to server: %s) from me: %s\n", bytes_sent,
+		 serveraddr.dag->dag_string().c_str(), myaddr.dag->dag_string().c_str());
 	}
+	pthread_mutex_unlock(&conf.lock);
 
 	// Wait for incoming packets
 	while(picoquic_get_cnx_state(connection) != picoquic_state_disconnected) {
@@ -294,7 +317,7 @@ int main()
 		delay_max = 10000000;
 
 		// Wait until data or timeout
-		bytes_recv = picoquic_xia_select(sockfd, &packet_from,
+		bytes_recv = picoquic_xia_select(myaddr.sockfd, &packet_from,
 				&packet_to, buffer, sizeof(buffer),
 				delta_t,
 				&current_time);
@@ -355,8 +378,8 @@ int main()
 			// Waited too long. Close connection
 			if(current_time > callback_context.last_interaction_time
 					&& current_time - callback_context.last_interaction_time
-					    > 10000000ull) {
-				printf("No progress for 10 seconds. Closing\n");
+					    > 60000000ull) {
+				printf("No progress for 60 seconds. Closing\n");
 				picoquic_close(connection, 0);
 				connection = NULL;
 				break;
@@ -367,22 +390,28 @@ int main()
 		// We get here whether there was a packet or a timeout
 		send_length = PICOQUIC_MAX_PACKET_SIZE;
 		while(send_length > 0) {
+			//sleep(5); // add a delay make sure the configuration updates
 			// Send out all packets waiting to go
-		if(picoquic_prepare_packet(connection, current_time,
-					send_buffer, sizeof(send_buffer), &send_length,
-					NULL, NULL, NULL, NULL)) {
-			printf("ERROR sending QUIC packet\n");
-			goto client_done;
-		}
-		if(send_length > 0) {
-			printf("Sending packet of size %ld\n", send_length);
-			bytes_sent = picoquic_xia_sendmsg(sockfd, send_buffer,
-					(int) send_length, &server_address, &my_address);
-			//printf("Sending a packet of size %d\n", (int)send_length);
-			if(bytes_sent <= 0) {
-				printf("ERROR sending packet to server\n");
+			pthread_mutex_lock(&conf.lock);
+			if(picoquic_prepare_packet(connection, current_time,
+						send_buffer, sizeof(send_buffer), &send_length,
+						NULL, NULL, NULL, NULL)) {
+				printf("ERROR sending QUIC packet\n");
+				pthread_mutex_unlock(&conf.lock);
+				goto client_done;
 			}
-		}
+			if(send_length > 0) {
+				printf("Sending packet of size %ld\n", send_length);
+				bytes_sent = picoquic_xia_sendmsg(myaddr.sockfd, send_buffer,
+						(int) send_length, &serveraddr.addr, &myaddr.addr, conf);
+				//printf("Sending a packet of size %d\n", (int)send_length);
+				if(bytes_sent <= 0) {
+					printf("ERROR sending packet to server\n");
+				}
+				printf("Sent %d byte packet to server: %s) from me: %s\n", bytes_sent, 
+					serveraddr.dag->dag_string().c_str(), myaddr.dag->dag_string().c_str());
+			}
+			pthread_mutex_unlock(&conf.lock);
 		}
 
 		// How long before we timeout waiting for more packets
@@ -412,7 +441,7 @@ client_done:
 			// fallthrough
 		case 1:
 			// TODO: Need to unregister this socket and AID at router
-			close(sockfd);
+			close(myaddr.sockfd);
 	};
 
 	return retval;

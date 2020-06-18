@@ -45,7 +45,7 @@ int main()
     installSIGINTHandler();
 
     // Get XIDs from local config file
-    auto conf = LocalConfig::get_instance(CONFFILE);
+    auto conf = LocalConfig(CONFFILE);
     auto xcache_aid = conf.get(XCACHE_AID);
     auto test_cid = conf.get(TEST_CID);
     if (xcache_aid.size() == 0) {

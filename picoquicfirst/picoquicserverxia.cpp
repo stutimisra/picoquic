@@ -18,6 +18,16 @@ extern "C" {
 
 #define CONFFILE "local.conf"
 #define SERVER_AID "SERVER_AID"
+#define IFNAME "IFNAME"
+#define CONTROL_PORT "8295"
+#define CONTROL_IP "10.0.1.133"
+
+// typedef struct addr_info_t {
+// 	int sockfd;
+// 	GraphPtr dag;
+// 	sockaddr_x addr;
+// 	int addrlen;
+// };
 
 void print_address(struct sockaddr* address, char* label)
 {
@@ -152,20 +162,34 @@ int main()
 	uint8_t send_buffer[1536];
 	size_t send_length = 0;
 	unsigned char received_ecn;
-	GraphPtr my_addr;
-	int sockfd = -1;
+	//int sockfd = -1;
 
-	auto conf = LocalConfig::get_instance(CONFFILE);
-	auto server_aid = conf.get(SERVER_AID);
+	// auto conf = LocalConfig::get_instance(CONFFILE);
+	// auto server_aid = conf.get(SERVER_AID);
+	// std::string server_ifname = conf.get(IFNAME);
 	
-	// We give a fictitious AID for now, and get a dag in my_addr
-	sockfd = picoquic_xia_open_server_socket(server_aid.c_str(), my_addr);
-	if(sockfd == -1) {
-		printf("ERROR creating xia server socket\n");
-		return -1;
-	} else {
-		printf("SUCCESS creating xia server socket\n");
-	}
+	// // We give a fictitious AID for now, and get a dag in my_addr
+	// std::cout<<"Xia open server"<<std::endl;
+	//  = picoquic_xia_open_server_socket(server_aid.c_str(), my_addr, server_ifname);
+	// if(sockfd == -1) {
+	// 	printf("ERROR creating xia server socket\n");
+	// 	return -1;
+	// } else {
+	// 	printf("SUCCESS creating xia server socket\n");
+	// }
+	// LocalConfig conf;
+	// GraphPtr mydag;
+	// int my_addrlen;
+	// sockaddr_x my_addr;
+	addr_info_t myaddr;
+	LocalConfig conf;
+	conf.control_addr = CONTROL_IP;
+	conf.control_port = CONTROL_PORT;
+	addr_info_t peer_addr;
+	if(conf.configure(CONTROL_PORT, CONTROL_IP, myaddr, peer_addr) < 0)
+	{
+		goto server_done;
+	}	
 	state = 1; // server socket now exists
 
 	// Get the server certificate
@@ -222,7 +246,9 @@ int main()
 		int64_t delta_t = picoquic_get_next_wake_delay(server, current_time,
 				delay_max);
 
-		bytes_recv = picoquic_xia_select(sockfd, &addr_from,
+		printf("Going into select\n");
+
+		bytes_recv = picoquic_xia_select(myaddr.sockfd, &addr_from,
 				&addr_local, buffer, sizeof(buffer),
 				delta_t,
 				&current_time);
@@ -273,12 +299,12 @@ int main()
 			}
 			// send out any outstanding stateless packets
 			printf("Server: sending stateless packet out on network\n");
-			picoquic_xia_sendmsg(sockfd, sp->bytes, sp->length,
-					&sp->addr_to, &sp->addr_local);
+			picoquic_xia_sendmsg(myaddr.sockfd, sp->bytes, sp->length,
+					&sp->addr_to, &sp->addr_local, conf);
 			picoquic_delete_stateless_packet(sp);
 		}
 
-		// Send outgoing packets for all connections
+		// ms outgoing packets for all connections
 		while((next_connection = picoquic_get_earliest_cnx_to_wake(server,
 					loop_time)) != NULL) {
 			sockaddr_x peer_addr;
@@ -307,9 +333,9 @@ int main()
 			if(rc == 0) {
 				if(send_length > 0) {
 					printf("Server: sending %ld byte packet\n", send_length);
-					(void)picoquic_xia_sendmsg(sockfd,
+					(void)picoquic_xia_sendmsg(myaddr.sockfd,
 							send_buffer, send_length,
-							&peer_addr, &local_addr);
+							&peer_addr, &local_addr, conf);
 				}
 			} else {
 				printf("Server: Exiting outgoing pkts loop. rc=%d\n", rc);
@@ -327,8 +353,8 @@ server_done:
 		case 2: // cleanup QUIC instance
 			picoquic_free(server);
 		case 1: // cleanup server sockets
-			if(sockfd != -1) {
-				close(sockfd);
+			if(myaddr.sockfd != -1) {
+				close(myaddr.sockfd);
 			}
 	};
 	return retval;

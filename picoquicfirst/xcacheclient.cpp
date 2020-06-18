@@ -274,7 +274,7 @@ int main()
 	uint8_t send_buffer[1536];
 	size_t send_length = 0;
 
-	auto conf = LocalConfig::get_instance(CONFFILE);
+	auto conf = LocalConfig(CONFFILE);
 	auto ticket_filename = conf.get(TICKET_STORE);
 	auto client_aid = conf.get(CLIENT_AID);
 	auto server_addr = conf.get(THEIR_ADDR);
