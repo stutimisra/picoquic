@@ -296,7 +296,7 @@ int main()
 		pthread_mutex_unlock(&conf.lock);
 		goto client_done;
 	}
-	printf("Prepared packet of size %u\n", send_length);
+	printf("Prepared packet of size %zu\n", send_length);
 	myaddr.dag->fill_sockaddr(&myaddr.addr);
 	int bytes_sent;
 	if(send_length > 0) {

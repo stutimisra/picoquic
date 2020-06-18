@@ -1,12 +1,8 @@
-#include "localconfig.hpp"
-
 #include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <vector>
-#include <string.h>
-#include <pthread.h>
 
 // C Headers
 #include <sys/socket.h>
@@ -15,12 +11,13 @@
 #include <sys/types.h>
 #include <netdb.h>
 #include <errno.h>
+#include <string.h>
 
-#include "configmessage.pb.h"
+#include "localconfig.hpp"
 
 // XIA support
 #include "xiaapi.hpp"
-#include "dagaddr.hpp"
+
 
 #define BUFSIZE 512
 

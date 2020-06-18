@@ -3,14 +3,13 @@
 
 #include <string>
 #include <unordered_map>
-#include <thread>
 #include <pthread.h>
+#include <thread>
 
-// XIA support
-#include "xiaapi.hpp"
 #include "dagaddr.hpp"
-
 #include "configmessage.pb.h"
+
+using GraphPtr = std::unique_ptr<Graph>;
 
 struct addr_info_t {
 	int sockfd;
@@ -24,7 +23,8 @@ struct addr_info_t {
 class LocalConfig {
     public:
     	LocalConfig();
-		static LocalConfig& get_instance(const std::string& confFile);
+        LocalConfig(const std::string& confFile);
+        static LocalConfig& get_instance(const std::string& confFile);
         std::string get(const std::string& param);
         int configure(std::string control_port, std::string control_addr, 
             addr_info_t &raddr, addr_info_t &saddr);
@@ -46,7 +46,6 @@ class LocalConfig {
         addr_info_t *server_addr;
         pthread_mutex_t lock;
     private:
-        LocalConfig(const std::string& confFile);
 		void stripInputLine(std::string& line);
         std::unordered_map<std::string, std::string> _conf;
         int control_socket;

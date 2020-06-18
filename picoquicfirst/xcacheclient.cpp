@@ -26,20 +26,13 @@ extern "C" {
 
 #define CONFFILE "xcacheclient.local.conf"
 
-#define CONTROL_PORT "8295"
-#define CONTROL_IP "10.0.1.129"
-
-// #define ROUTER_ADDR "ROUTER_ADDR"
-// #define ROUTER_PORT "ROUTER_PORT"
-// #define OUR_ADDR "OUR_ADDR"
-// #define CLIENT_AID "CLIENT_AID"
-// #define THEIR_ADDR "THEIR_ADDR"
-// #define TICKET_STORE "TICKET_STORE"
-// #define TEST_CID "TEST_CID"
-// 
-
-std::string server_addr = "10.0.1.129";
-std::string test_cid = "";
+#define ROUTER_ADDR "ROUTER_ADDR"
+#define ROUTER_PORT "ROUTER_PORT"
+#define OUR_ADDR "OUR_ADDR"
+#define CLIENT_AID "CLIENT_AID"
+#define THEIR_ADDR "THEIR_ADDR"
+#define TICKET_STORE "TICKET_STORE"
+#define TEST_CID "TEST_CID"
 
 using namespace std;
 
@@ -281,6 +274,22 @@ int main()
 	uint8_t send_buffer[1536];
 	size_t send_length = 0;
 
+	auto conf = LocalConfig(CONFFILE);
+	auto ticket_filename = conf.get(TICKET_STORE);
+	auto client_aid = conf.get(CLIENT_AID);
+	auto server_addr = conf.get(THEIR_ADDR);
+	auto test_cid = conf.get(TEST_CID);
+	GraphPtr mydag;
+	sockaddr_x my_address;
+	int my_addrlen;
+
+	// QUIC client
+	picoquic_quic_t *client;
+
+	// Callback context
+	struct callback_context_t callback_context;
+	memset(&callback_context, 0, sizeof(struct callback_context_t));
+
 	// Server address
 	sockaddr_x server_address;
 	int server_addrlen;
@@ -295,42 +304,16 @@ int main()
 	serverdag.fill_sockaddr(&server_address);
 	server_addrlen = sizeof(sockaddr_x);
 
-	// auto conf = LocalConfig::get_instance(CONFFILE);
-	// auto ticket_filename = conf.get(TICKET_STORE);
-	// auto client_aid = conf.get(CLIENT_AID);
-	// auto server_addr = conf.get(THEIR_ADDR);
-	// auto 
-	// test_cid = conf.get(TEST_CID);
-	// GraphPtr mydag;
-	// sockaddr_x my_address;
-	// int my_addrlen;
-	// 
-	// Callback context
-	struct callback_context_t callback_context;
-	memset(&callback_context, 0, sizeof(struct callback_context_t));
-
-	addr_info_t myaddr;
-	std::string ticket_filename;
-	LocalConfig conf;
-	if(conf.configure(CONTROL_PORT, CONTROL_IP, myaddr) <0)
-	{
-		printf("Config failed");
-		goto client_done;
-	}
-
-	// QUIC client
-	picoquic_quic_t *client;
-
 	// A socket to talk to server on
 	//sockfd = socket(server_address.ss_family, SOCK_DGRAM, IPPROTO_UDP);
-	// picoquic_xia_open_server_socket(CONTROL_PORT, CONTROL_IP, myaddr);
-	// if(myaddr.sockfd == INVALID_SOCKET) {
-	// 	goto client_done;
-	// }
-	// std::cout << "CLIENTADDR: " << myaddr.dag->dag_string() << std::endl;
-	// myaddr.dag->fill_sockaddr(&myaddr.addr);
-	// int my_addrlen = sizeof(sockaddr_x);
-	// cout << "Created socket to talk to server" << endl;
+	sockfd = picoquic_xia_open_server_socket(client_aid.c_str(), mydag);
+	if(sockfd == INVALID_SOCKET) {
+		goto client_done;
+	}
+	std::cout << "CLIENTADDR: " << mydag->dag_string() << std::endl;
+	mydag->fill_sockaddr(&my_address);
+	my_addrlen = sizeof(sockaddr_x);
+	cout << "Created socket to talk to server" << endl;
 	state = 1; // socket created
 
 	// Create QUIC context for client
@@ -415,17 +398,16 @@ int main()
 	if(picoquic_prepare_packet(connection, current_time,
 				send_buffer, sizeof(send_buffer), &send_length,
 				(struct sockaddr_storage*)&server_address, &server_addrlen,
-				(struct sockaddr_storage*)&myaddr.addr, &myaddr.addrlen)) {
+				(struct sockaddr_storage*)&my_address, &my_addrlen)) {
 		cout << "ERROR: preparing a QUIC packet to send" << endl;
 		goto client_done;
 	}
 	cout << "Prepared packet of size " <<  send_length << endl;
-	myaddr.dag->fill_sockaddr(&myaddr.addr);
+	mydag->fill_sockaddr(&my_address);
 	int bytes_sent;
 	if(send_length > 0) {
-
-		bytes_sent = picoquic_xia_sendmsg(myaddr.sockfd, send_buffer,
-				(int) send_length, &server_address, &myaddr.addr, conf);
+		bytes_sent = picoquic_xia_sendmsg(sockfd, send_buffer,
+				(int) send_length, &server_address, &my_address);
 		if(bytes_sent < 0) {
 			cout << "ERROR: sending packet to server";
 			goto client_done;
@@ -522,8 +504,8 @@ int main()
 			}
 			if(send_length > 0) {
 				cout << "Sending packet of size " << send_length << endl;
-				bytes_sent = picoquic_xia_sendmsg(myaddr.sockfd, send_buffer,
-						(int) send_length, &server_address, &myaddr.addr, conf);
+				bytes_sent = picoquic_xia_sendmsg(sockfd, send_buffer,
+						(int) send_length, &server_address, &my_address);
 				//printf("Sending a packet of size %d\n", (int)send_length);
 				if(bytes_sent <= 0) {
 					cout << "ERROR sending packet to server" << endl;

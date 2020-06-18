@@ -1,6 +1,5 @@
 
 #include "xcache_quic_server.h"
-#include "localconfig.hpp"
 
 #include "cid_header.h"
 
@@ -71,7 +70,6 @@ int XcacheQUICServer::incomingPacket() {
         }
     }
 
-    LocalConfig conf;
     // Send stateless packets
     picoquic_stateless_packet_t* sp;
     while((sp = quic.dequeueStatelessPacket()) !=NULL) {
@@ -83,7 +81,7 @@ int XcacheQUICServer::incomingPacket() {
         // send out any outstanding stateless packets
         cout << "Server: sending stateless packet out on network" << endl;
         picoquic_xia_sendmsg(fd(), sp->bytes, sp->length,
-                &sp->addr_to, &sp->addr_local, conf);
+                &sp->addr_to, &sp->addr_local);
         picoquic_delete_stateless_packet(sp);
     }
 
@@ -116,7 +114,7 @@ int XcacheQUICServer::incomingPacket() {
                 printf("Server: sending %ld byte packet\n", send_length);
                 (void)picoquic_xia_sendmsg(fd(),
                         send_buffer, send_length,
-                        &addr_from, &addr_local, conf);
+                        &addr_from, &addr_local);
             }
         } else {
             printf("Server: Exiting outgoing pkts loop. rc=%d\n", rc);

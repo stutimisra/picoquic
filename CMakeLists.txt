@@ -46,31 +46,31 @@ if(DISABLE_DEBUG_PRINTF)
 endif()
 
 set(LOCAL_CONFIG_FILES
-	picoquic/localconfig.cpp
+    picoquic/localconfig.cpp
 )
 
 set(PICOQUIC_XIA_API_FILES
-	picoquic/xiaapi.cpp
-	picoquic/quicxiasock.cpp
+    picoquic/xiaapi.cpp
+    picoquic/quicxiasock.cpp
 )
 
-#set(PICOQUIC_XCACHE_FILES
-#	xcache/xcache.cc
-#	xcache/xcache_thread_pool.cc
-#	xcache/xcache_quic.cc
-#	xcache/xcache_quic_server.cc
-#    xcache/xcache_icid_handler.cc
-#	xcache/fd_manager.cc
+set(PICOQUIC_XCACHE_FILES
+  xcache/xcache.cc
+  xcache/xcache_thread_pool.cc
+  xcache/xcache_quic.cc
+  xcache/xcache_quic_server.cc
+   xcache/xcache_icid_handler.cc
+  xcache/fd_manager.cc
 
-#	xcache/xcache_push_request.cc
-#	xcache/xcache_receive_request.cc
-#	xcache/xcache_irq_table.cc
-#)
+  xcache/xcache_push_request.cc
+  xcache/xcache_receive_request.cc
+  xcache/xcache_irq_table.cc
+)
 
 set(PICOQUIC_LIBRARY_FILES
     picoquic/cubic.c
-	picoquic/democlient.c
-	picoquic/demoserver.c
+    picoquic/democlient.c
+    picoquic/demoserver.c
     picoquic/fnv1a.c
     picoquic/frames.c
     picoquic/h3zero.c
@@ -131,14 +131,14 @@ PROTOBUF_GENERATE_CPP(ProtoSources ProtoHeaders ${ProtoFiles})
 #add_library(confreqmsgs STATIC ${ProtoSources} ${ProtoHeaders})
 #target_link_libraries(confreqmsgs ${PROTOBUF_LIBRARY})
 set(ProtobufIncludePath ${CMAKE_CURRENT_BINARY_DIR}
-	CACHE INTERNAL "Path to generated ConfigRequest messages protobuf files.")
+    CACHE INTERNAL "Path to generated ConfigRequest messages protobuf files.")
 
 include_directories(picoquic picoquictest ${ProtobufIncludePath}
     ${PTLS_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR})
 
 # Build XIA API and protobuf defs to configure forwarding table on router
 add_library(picoquicxia ${PICOQUIC_XIA_API_FILES}
-	${ProtoSources} ${ProtoHeaders})
+    ${ProtoSources} ${ProtoHeaders})
 add_dependencies(picoquicxia xia)
 
 set(XIADIR ${CMAKE_SOURCE_DIR}/build/xia-prefix/src/xia)
@@ -167,72 +167,74 @@ target_link_libraries(picoquicdemo picoquic-core
 
 add_executable(picoquicclient picoquicfirst/picoquicclient.c)
 target_link_libraries(picoquicclient picoquic-core
-	${PTLS_LIBRARIES}
-	${OPENSSL_LIBRARIES}
-	${CMAKE_DL_LIBS}
+    ${PTLS_LIBRARIES}
+    ${OPENSSL_LIBRARIES}
+    ${CMAKE_DL_LIBS}
 )
 
 add_executable(picoquicserver picoquicfirst/picoquicserver.c)
 target_link_libraries(picoquicserver picoquic-core
-	${PTLS_LIBRARIES}
-	${OPENSSL_LIBRARIES}
-	${CMAKE_DL_LIBS}
+    ${PTLS_LIBRARIES}
+    ${OPENSSL_LIBRARIES}
+    ${CMAKE_DL_LIBS}
 )
 
 find_package( Threads )
 add_executable(picoquicclientxia picoquicfirst/picoquicclientxia.cpp)
 target_link_libraries(picoquicclientxia picoquic-core picoquicxia
-	localconfig
-	${PTLS_LIBRARIES}
-	${OPENSSL_LIBRARIES}
+    localconfig
+    ${PTLS_LIBRARIES}
+    ${OPENSSL_LIBRARIES}
     ${PROTOBUF_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
-	${CMAKE_DL_LIBS}
+    ${CMAKE_DL_LIBS}
 )
 include_directories(picoquicclientxia ${XIADIR}/api/include)
 
-#set(XCACHEHDR_LIBRARY ${XIADIR}/api/lib/libxcachehdr.so)
-#set(XCACHE_LIBRARY ${XIADIR}/api/lib/libxcache.so)
-#set(XSOCKET_LIBRARY ${XIADIR}/api/lib/libXsocket.so)
+set(XCACHEHDR_LIBRARY ${XIADIR}/api/lib/libxcachehdr.so)
+set(XCACHE_LIBRARY ${XIADIR}/api/lib/libxcache.so)
+set(XSOCKET_LIBRARY ${XIADIR}/api/lib/libXsocket.so)
 
-#add_executable(xcacheclient picoquicfirst/xcacheclient.cpp)
-#target_link_libraries(xcacheclient picoquic-core picoquicxia
-#	localconfig
-#	${XCACHEHDR_LIBRARY}
-#	${XCACHE_LIBRARY}
-#	${PTLS_LIBRARIES}
-#	${OPENSSL_LIBRARIES}
-#	${CMAKE_DL_LIBS}
-#)
-#include_directories(xcacheclient ${XIADIR}/api/xcache/headers)
+find_package( Threads )
+add_executable(xcacheclient picoquicfirst/xcacheclient.cpp)
+target_link_libraries(xcacheclient picoquic-core picoquicxia
+  localconfig
+  ${XCACHEHDR_LIBRARY}
+  ${XCACHE_LIBRARY}
+  ${PTLS_LIBRARIES}
+  ${OPENSSL_LIBRARIES}
+  ${CMAKE_THREAD_LIBS_INIT}
+  ${CMAKE_DL_LIBS}
+)
+include_directories(xcacheclient ${XIADIR}/api/xcache/headers)
 
 find_package( Threads )
 add_executable(picoquicserverxia picoquicfirst/picoquicserverxia.cpp)
 target_link_libraries(picoquicserverxia picoquic-core picoquicxia
-	localconfig
-	${PTLS_LIBRARIES}
-	${OPENSSL_LIBRARIES}
+    localconfig
+    ${PTLS_LIBRARIES}
+    ${OPENSSL_LIBRARIES}
     ${PROTOBUF_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
-	${CMAKE_DL_LIBS}
+    ${CMAKE_DL_LIBS}
 )
 include_directories(picoquicserverxia ${XIADIR}/api/include)
 
-#find_package( Threads )
-#add_executable(xcache ${PICOQUIC_XCACHE_FILES})
-#target_link_libraries(xcache picoquic-core picoquicxia
-#	localconfig
-#	${XCACHEHDR_LIBRARY}
-#	${XCACHE_LIBRARY}
-#	${PTLS_LIBRARIES}
-#	${OPENSSL_LIBRARIES}
-#	${PROTOBUF_LIBRARY}
-#	${CMAKE_THREAD_LIBS_INIT}
-#	${XSOCKET_LIBRARY}
-#	${CMAKE_DL_LIBS}
-#)
-#include_directories(xcache ${XIADIR}/api/xcache/headers)
-#include_directories(xcache ${XIADIR}/api/xcache)
+find_package( Threads )
+add_executable(xcache ${PICOQUIC_XCACHE_FILES})
+target_link_libraries(xcache picoquic-core picoquicxia
+  localconfig
+  ${XCACHEHDR_LIBRARY}
+  ${XCACHE_LIBRARY}
+  ${PTLS_LIBRARIES}
+  ${OPENSSL_LIBRARIES}
+  ${PROTOBUF_LIBRARY}
+  ${CMAKE_THREAD_LIBS_INIT}
+  ${XSOCKET_LIBRARY}
+  ${CMAKE_DL_LIBS}
+)
+include_directories(xcache ${XIADIR}/api/xcache/headers)
+include_directories(xcache ${XIADIR}/api/xcache)
 
 add_executable(picoquic_ct picoquic_t/picoquic_t.c
  ${PICOQUIC_TEST_LIBRARY_FILES} )
