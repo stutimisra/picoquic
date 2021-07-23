@@ -13,14 +13,14 @@ extern "C" {
 #include "xiaapi.hpp"
 #include "dagaddr.hpp"
 
-#define SERVER_CERT_FILE "certs/cert.pem"
-#define SERVER_KEY_FILE "certs/key.pem"
+#define SERVER_CERT_FILE "../certs/cert.pem"
+#define SERVER_KEY_FILE "../certs/key.pem"
 
-#define CONFFILE "local.conf"
+#define CONFFILE "localserver.conf"
 #define SERVER_AID "SERVER_AID"
 #define IFNAME "IFNAME"
-#define CONTROL_PORT "8295"
-#define CONTROL_IP "10.0.1.133"
+#define CONTROL_PORT "8296"
+#define CONTROL_IP "172.16.7.3"
 
 // typedef struct addr_info_t {
 // 	int sockfd;

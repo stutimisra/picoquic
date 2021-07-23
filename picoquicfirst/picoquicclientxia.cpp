@@ -24,7 +24,7 @@ extern "C" {
 #define TICKET_STORE "TICKET_STORE"
 #define IFNAME "IFNAME"
 #define CONTROL_PORT "8295"
-#define CONTROL_IP "10.0.1.131"
+#define CONTROL_IP "172.16.7.3"
 
 // If there were multiple streams, we would track progress for them here
 struct callback_context_t {
