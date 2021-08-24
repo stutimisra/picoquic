@@ -250,6 +250,7 @@ void start_stream(picoquic_cnx_t* connection,
 
 int main()
 {
+      try {
 	// cleanup state
 	int state = 0;
 	int retval = -1;
@@ -275,6 +276,7 @@ int main()
 	size_t send_length = 0;
 
 	auto conf = LocalConfig(CONFFILE);
+	cout<<"I'm here"<<endl;
 	auto ticket_filename = conf.get(TICKET_STORE);
 	auto client_aid = conf.get(CLIENT_AID);
 	auto server_addr = conf.get(THEIR_ADDR);
@@ -282,14 +284,12 @@ int main()
 	GraphPtr mydag;
 	sockaddr_x my_address;
 	int my_addrlen;
-
 	// QUIC client
 	picoquic_quic_t *client;
 
 	// Callback context
 	struct callback_context_t callback_context;
 	memset(&callback_context, 0, sizeof(struct callback_context_t));
-
 	// Server address
 	sockaddr_x server_address;
 	int server_addrlen;
@@ -544,4 +544,8 @@ client_done:
 	};
 
 	return retval;
+      } catch(char const* e) {
+      
+         cout << e << endl;
+      }
 }
