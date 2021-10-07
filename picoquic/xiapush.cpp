@@ -1,4 +1,6 @@
- #include "localconfig.hpp"
+#include "xiapush.hpp"
+
+#include "localconfig.hpp"
 // XIA support
 #include "xiaapi.hpp"
 #include "dagaddr.hpp"
@@ -130,9 +132,8 @@ void start_stream(picoquic_cnx_t* connection,
 	}
 }
 
-int main()
-{
-	// cleanup state
+int picoquic_xia_push_client(picoquic_quic_t *client, addr_info_t myaddr, addr_info_t serveraddr, string ) {
+        // cleanup state
 	int state = 0;
 	int retval = -1;
 	FILE* logfile = NULL;
@@ -155,98 +156,9 @@ int main()
 	uint8_t send_buffer[1536];
 	size_t send_length = 0;
 
-	// read local config
-	
-	//server
-	// sockaddr_x server_address;
-	// std::string serverdagstr = SERVER_ADDR + " " + SERVER_AID;
-	// Graph serverdag(serverdagstr);
-	// serverdag.fill_sockaddr(&server_address);
-	// int server_addrlen = sizeof(sockaddr_x);
-
-	// 
-	LocalConfig conf;
-	conf.control_addr = CONTROL_IP;
-	conf.control_port = CONTROL_PORT;
-	addr_info_t myaddr;
-	addr_info_t serveraddr;
-	std::string ticket_store_filename;
-	if(conf.configure(CONTROL_PORT, CONTROL_IP, myaddr, serveraddr) < 0)
-	{
-		goto client_done;
-	}
-
-	// Server address  - keeping that fixed
-	// auto server_addr = conf.get_their_addr();
-	// auto server_aid = conf.get_server_aid();
-	// int server_addrlen;
-
-	// auto conf = LocalConfig::get_instance(CONFFILE);
-	// auto server_addr = conf.get(THEIR_ADDR);
-	// auto server_aid = conf.get(SERVER_AID);
-	// auto client_aid = conf.get(CLIENT_AID);
-	// std::string client_ifname = conf.get(IFNAME);
-	ticket_store_filename = TICKET_STORE; //conf.get_ticket_store();
-
-	// // QUIC client
-	picoquic_quic_t *client;
-
 	// Callback context
 	struct callback_context_t callback_context;
 	memset(&callback_context, 0, sizeof(struct callback_context_t));
-
-	// // A socket to talk to server on
-	// //sockfd = socket(server_address.ss_family, SOCK_DGRAM, IPPROTO_UDP);
-	// // bind to socket and fill my addr
-	// sockfd = picoquic_xia_open_server_socket(client_aid.c_str(), mydag, client_ifname);
-	// if(sockfd == INVALID_SOCKET) {
-	// 	goto client_done;
-	// }
-	// std::cout << "CLIENTADDR: " << mydag->dag_string().c_str() << std::endl;
-	// mydag->fill_sockaddr(&my_address);
-	// my_addrlen = sizeof(sockaddr_x);
-	// printf("Created socket to talk to server\n");
-	state = 1; // socket created
-
-	// Create QUIC context for client
-	current_time = picoquic_current_time();
-	callback_context.last_interaction_time = current_time;
-	client = picoquic_create(
-			8,             // number of connections
-			NULL,          // cert_file_name
-			NULL,          // key_file_name
-			NULL,          // cert_root_file_name
-			"hq-17",       // Appl. Layer Protocol Nogotiation
-			NULL,          // Stream data callback
-			NULL,          // Stream data context
-			NULL,          // connection ID callback
-			NULL,          // connection ID callback context
-			NULL,          // reset_seed
-			current_time,  // current time
-			NULL,          // p_simulated_time
-			ticket_store_filename.c_str(),          // ticket_file_name
-			NULL,          // ticket_encryption_key
-			0              // ticket encryption key length
-			);
-
-	if(client == NULL) {
-		printf("ERROR: creating client\n");
-		goto client_done;
-	}
-	printf("Created QUIC context\n");
-	state = 2; // picoquic context created for client
-
-	// Open a log file for writing
-	logfile = fopen("client.log", "w");
-	if(logfile == NULL) {
-		printf("ERROR opening log file\n");
-		goto client_done;
-	}
-	PICOQUIC_SET_LOG(client, logfile);
-	state = 3; // logfile needs to be closed
-
-	// We didn't provide a root cert, so set verifier to null
-	picoquic_set_null_verifier(client);
 
 	// Create a connection in QUIC
 	picoquic_cnx_t *connection;
@@ -263,12 +175,12 @@ int main()
 			);
 	if(connection == NULL) {
 		printf("ERROR: creating client connection in QUIC\n");
-		goto client_done;
+		return 0;
 	}
-	printf("Created QUIC connection instance\n");
-	state = 4;
 
-	// Set a callback for the client connection
+	printf("Created QUIC connection instance\n");
+
+    // Set a callback for the client connection
 	// TODO: Can we just set the callback in picoquic_create?
 	picoquic_set_callback(connection, client_callback, &callback_context);
 
@@ -294,7 +206,7 @@ int main()
 				(struct sockaddr_storage*)&myaddr.addr, &myaddr.addrlen)) {
 		printf("ERROR: preparing a QUIC packet to send\n");
 		pthread_mutex_unlock(&conf.lock);
-		goto client_done;
+		return 1;
 	}
 	printf("Prepared packet of size %zu\n", send_length);
 	myaddr.dag->fill_sockaddr(&myaddr.addr);
@@ -304,7 +216,7 @@ int main()
 				(int) send_length, &serveraddr.addr, &myaddr.addr, conf);
 		if(bytes_sent < 0) {
 			printf("ERROR: sending packet to server\n");
-			goto client_done;
+			return 1;
 		}
 		printf("Sent %d byte packet to server: %s) from me: %s\n", bytes_sent,
 		 serveraddr.dag->dag_string().c_str(), myaddr.dag->dag_string().c_str());
@@ -424,25 +336,12 @@ int main()
 				ticket_store_filename.c_str()) != 0) {
 		printf("ERROR saving session tickets\n");
 	}
+
+    // Closing server connection 
+    if(connection) {
+        picoquic_close(connection, 0); // 0 = reason code
+    }
 	// Everything went well, so return success
 	retval = 0;
-
-client_done:
-	switch(state) {
-		case 4:
-			if(connection) {
-				picoquic_close(connection, 0); // 0 = reason code
-			}
-		case 3:
-			fclose(logfile);
-			// fallthrough
-		case 2:
-			picoquic_free(client);
-			// fallthrough
-		case 1:
-			// TODO: Need to unregister this socket and AID at router
-			close(myaddr.sockfd);
-	};
-
 	return retval;
 }
