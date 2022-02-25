@@ -11,6 +11,7 @@ extern "C" {
 #include <memory>
 #include <string>
 
+#include "chunkapi.cpp"
 #include "xcache_quic.h"
 #include "quicxiasock.hpp"
 
@@ -28,6 +29,7 @@ typedef struct {
     size_t datalen;
     size_t sent_offset;
     NodePtr xid;
+
 } callback_context_t;
 
 class XcacheQUICServer {
@@ -38,13 +40,16 @@ class XcacheQUICServer {
         int incomingPacket();
         int sendInterest(sockaddr_x& icid_dag);
         int fd();
+        int select();
         GraphPtr serveCID(const std::string& cid);
+        // static GraphPtr serveCIDStatic(const std::string& cid);
     private:
         static int server_callback(picoquic_cnx_t* connection,
                 uint64_t stream_id, uint8_t* bytes, size_t length,
                 picoquic_call_back_event_t event, void* ctx);
         void print_address(struct sockaddr* address, char* label);
         static int buildDataToSend(callback_context_t* ctx, size_t datalen);
+        static int sendOkResponse(callback_context_t* ctx);
         static int sendData(picoquic_cnx_t* connection,
                 uint64_t stream_id, callback_context_t* ctx);
         static int remove_context(picoquic_cnx_t* connection,
@@ -55,6 +60,7 @@ class XcacheQUICServer {
         XcacheQUIC quic;
         int bytes_recv;                    // size of packet received
         size_t send_length = 0;
+        chunkhash_table* hash_table; // create chunk table 
         unsigned char received_ecn;
         picoquic_cnx_t* newest_cnx = NULL;
         picoquic_cnx_t* next_connection = NULL;

@@ -2,7 +2,7 @@
 // XIA support
 #include "xiaapi.hpp"
 #include "dagaddr.hpp"
-#include "xiapush.hpp"
+#include "xiapushclient.hpp"
 
 // C++ includes
 #include <iostream>
@@ -164,7 +164,7 @@ int main()
 	// We didn't provide a root cert, so set verifier to null
 	picoquic_set_null_verifier(client);
 
-	if (picoquic_xia_push(client, my_addr, server_addr, conf.control_addr, conf.control_port) == 0) {
+	if (picoquic_xia_push_client(client, myaddr, serveraddr, conf.control_addr, conf.control_port, conf) == 0) {
 		state = 3; // everything done successfully and logfile needs to close
 	} else {
 		printf("Error while pushing");

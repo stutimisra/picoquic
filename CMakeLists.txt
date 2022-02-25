@@ -52,6 +52,10 @@ set(LOCAL_CONFIG_FILES
 set(PICOQUIC_XIA_API_FILES
     picoquic/xiaapi.cpp
     picoquic/quicxiasock.cpp
+    picoquic/chunkapi.cpp
+    picoquic/chunkhash.cpp
+    picoquic/xiapushclient.cpp
+    picoquic/xiapushserver.cpp
 )
 
 set(PICOQUIC_XCACHE_FILES
@@ -191,7 +195,6 @@ target_link_libraries(picoquicclientxia picoquic-core picoquicxia
     ${CMAKE_DL_LIBS}
 )
 include_directories(picoquicclientxia ${XIADIR}/api/include)
-
 
 find_package( Threads )
 add_executable(picoquicclientxiaapi picoquicfirst/picoquicclientxiaapi.cpp)

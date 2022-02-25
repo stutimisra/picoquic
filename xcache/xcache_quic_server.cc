@@ -1,16 +1,19 @@
 
 #include "xcache_quic_server.h"
 
+#include "xiaapi.hpp"
 #include "cid_header.h"
 
 #include <functional> // std::bind
 #include <iostream>
+#include <fstream>
 
 using namespace std;
 
 XcacheQUICServer::XcacheQUICServer(const string& xcache_aid)
     : quic(&XcacheQUICServer::server_callback) {
     xcache_socket = make_unique<QUICXIASocket>(xcache_aid);
+    hash_table = create_table(TABLE_SIZE);
 }
 
 void XcacheQUICServer::updateTime() {
@@ -25,6 +28,17 @@ GraphPtr XcacheQUICServer::serveCID(const string& cid) {
     return xcache_socket->serveCID(cid);
 }
 
+/*
+GraphPtr XcacheQUICServer::serveCIDStatic(const string& cid) {
+    GraphPtr cid_addr;
+    if (picoquic_xia_serve_cid(sockfd, cid.c_str(), cid_addr)) {
+        cout << "ERROR setting up route for " << cid << endl;
+        return cid_addr;
+    }
+    cids_served.insert(cid);
+    return cid_addr;
+}*/
+
 int64_t XcacheQUICServer::nextWakeDelay(int64_t delay_max) {
     return quic.nextWakeDelay(delay_max);
 }
@@ -35,8 +49,13 @@ int XcacheQUICServer::sendInterest(sockaddr_x& icid_dag) {
     return picoquic_xia_icid_request(fd(), &icid_dag, &our_addr);
 }
 
+int XcacheQUICServer::select() {
+	return picoquic_xia_select(fd(), &addr_from, &addr_local, buffer, sizeof(buffer), delta_t, reinterpret_cast <uint64_t *> (quic.currentTime()));
+}
+
 // There's a packet on our socket for us to process, after select()
 int XcacheQUICServer::incomingPacket() {
+    std::cout << "Incoming packet" << endl;
     bytes_recv = picoquic_xia_recvfrom(fd(), &addr_from, &addr_local,
             buffer, sizeof(buffer));
     if(bytes_recv <= 0) {
@@ -147,6 +166,17 @@ int XcacheQUICServer::buildDataToSend(callback_context_t* ctx, size_t datalen)
     return 0;
 }
 
+int XcacheQUICServer::sendOkResponse(callback_context_t* ctx)
+{
+    char ok_response[] = "OK";
+    const uint8_t* p = reinterpret_cast<const uint8_t*>(ok_response);
+    ctx->data.reserve(strlen(ok_response));
+    for(int i=0; i<strlen(ok_response); i++) { // will be extremely inefficient long run but should be ok for now
+        ctx->data.push_back((uint8_t) p[i]);
+    }
+    return 0;
+}
+
 // Send a chunk
 int XcacheQUICServer::sendData(picoquic_cnx_t* connection,
                 uint64_t stream_id, callback_context_t* ctx)
@@ -156,13 +186,20 @@ int XcacheQUICServer::sendData(picoquic_cnx_t* connection,
         return -1;
     }
 
+    char ok_response[] = "OK";
+
     // Fill in random data as chunk contents
     if (ctx->data.size() == 0) {
-        if (buildDataToSend(ctx, TEST_CHUNK_SIZE) ) {
+        if (sendOkResponse(ctx)) {
             cout << "ERROR creating data buffer to send" << endl;
             return -1;
         }
-        ctx->datalen = TEST_CHUNK_SIZE;
+        /*
+        if (buildDataToSend(ctx, TEST_CHUNK_SIZE) ) {
+            cout << "ERROR creating data buffer to send" << endl;
+            return -1;
+        }*/
+        ctx->datalen = strlen(ok_response);
         ctx->sent_offset = 0;
     }
 
@@ -233,10 +270,59 @@ int XcacheQUICServer::process_data(callback_context_t* context,
         return 0;
     }
 
+    cout << "Processing Data" << endl;
+
     // Client simply sends a hello message as a placeholder
     string data((const char*)bytes, length);
+
+
+    // get all the diff pieces 
+    std::string delimiter = ":";
+    std::string xid_packet_type;
+    std::string hex_digest;
+    std::string sent_file;
+
+    size_t pos = 0;
+
+    // This is the data received 
+    if ((pos = data.find(delimiter)) != std::string::npos) {
+        xid_packet_type = data.substr(0, pos);
+    }
+
+    std::cout << "xid type:" << xid_packet_type << std::endl;
+
+    data.erase(0, pos + delimiter.length());
+
+    if ((pos = data.find(delimiter)) != std::string::npos) {
+        hex_digest = data.substr(0, pos);
+    }
+
+    std::cout << "hex digest:" << hex_digest << std::endl;
+
+    data.erase(0, pos + delimiter.length());  
+
+    // GraphPtr cidPtr = serveCID(hex_digest);
+
+    //hash_table.put((const char*)bytes, length, 2000, 60);
+
+    //std::ofstream out("output.txt");
+    //out << input;
+    //out.close();
+
+    //AddItem(hash_table, xid_packet_type + ":" + hex_digest, );
+
+    if ((pos = data.find(delimiter)) != std::string::npos) {
+        sent_file = data.substr(0, pos);
+    }
+
+    std::cout << "sent file:" << sent_file << std::endl;
+
+    data.erase(0, pos + delimiter.length());  
+    
     cout << __FUNCTION__ << " Client sent " << data.c_str() << endl;
     context->received_so_far += length;
+
+    // Logic to add this to the hash table
     return length;
 }
 
