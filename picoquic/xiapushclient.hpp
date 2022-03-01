@@ -35,8 +35,8 @@ class LocalConfig;
  * It creates a connection to the server and sends some dummy data 
  * This return 1 if there is an error and 0 if not 
  * */
-int picoquic_xia_push_client(picoquic_quic_t *client);
+int picoquic_xia_push_client(picoquic_quic_t *client, addr_info_t myaddr, addr_info_t serveraddr, string port, LocalConfig conf);
 
-#endif //QUIC_XIA_SOCK_H
+#endif //PICOQUIC_XIAPUSHCLIENT_H
 
 

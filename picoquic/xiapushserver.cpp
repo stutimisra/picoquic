@@ -20,22 +20,11 @@ extern "C" {
 #include "util.h"
 };
 
-#define CONFFILE "local.conf"
-#define THEIR_ADDR "THEIR_ADDR" // The THEIR_ADDR entry in config file
-#define CLIENT_AID "CLIENT_AID" // The CLIENT_AID entry in config file
-#define TICKET_STORE "TICKET_STORE"
-#define IFNAME "IFNAME"
-#define CONTROL_PORT "8295"
-#define CONTROL_IP "172.64.0.31"
 
-#define XCACHE_AID "XCACHE_AID"
-#define TEST_CID "TEST_CID"
 
-int picoquic_xia_server(LocalConfig conf) {
+int picoquic_xia_server(std::string xcache_aid, std::string test_cid) {
 	int retval = -1;
 	int state = 0;
-	auto xcache_aid = conf.get(XCACHE_AID); // this need not be xcache so we should pass it indvidually 
-    auto test_cid = conf.get(TEST_CID);
 	FILE* logfile = NULL;
 	XcacheQUICServer server(xcache_aid);
 	uint64_t current_time;

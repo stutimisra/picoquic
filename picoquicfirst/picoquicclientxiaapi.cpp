@@ -2,7 +2,7 @@
 // XIA support
 #include "xiaapi.hpp"
 #include "dagaddr.hpp"
-#include "xiapushclient.hpp"
+// #include "xiapushclient.hpp"
 
 // C++ includes
 #include <iostream>
@@ -27,26 +27,12 @@ extern "C" {
 #define CONTROL_PORT "8295"
 #define CONTROL_IP "10.0.1.131"
 
-// Move this logic to the stri
-void start_stream(picoquic_cnx_t* connection,
-		struct callback_context_t* context)
-{
-	printf("Starting a stream\n");
-
-	uint64_t stream_id = 0;
-	char data[] = "Hello world!";
-	context->stream_open = 1;
-	context->connected = 1;
-
-	// Queue up a "Hello world!" to be sent to the server
-	printf("Sending %ld bytes of data on stream\n", sizeof(data));
-	if(picoquic_add_to_stream(connection,
-				stream_id, // Any arbitrary stream ID client picks
-				(uint8_t*)data, sizeof(data), // data to be sent
-				1)) { // finished; would be 0 if interacting more with server
-		printf("ERROR: sending hello on stream\n");
-	}
-}
+struct callback_context_t {
+	int connected;
+	int stream_open;
+	int received_so_far;
+	uint64_t last_interaction_time;
+};
 
 int main()
 {
@@ -108,7 +94,8 @@ int main()
 
 	// // QUIC client
 	picoquic_quic_t *client;
-
+	struct callback_context_t callback_context;
+	memset(&callback_context, 0, sizeof(struct callback_context_t));
 
 
 	// // A socket to talk to server on
@@ -126,7 +113,8 @@ int main()
 
 	// Create QUIC context for client
 	current_time = picoquic_current_time();
-	callback_context.last_interaction_time = current_time;
+
+	// We might want to move the client 
 	client = picoquic_create(
 			8,             // number of connections
 			NULL,          // cert_file_name
@@ -158,17 +146,11 @@ int main()
 		printf("ERROR opening log file\n");
 		goto client_done;
 	}
-	PICOQUIC_SET_LOG(client, logfile);
+
 	state = 3; // logfile needs to be closed
 
 	// We didn't provide a root cert, so set verifier to null
 	picoquic_set_null_verifier(client);
-
-	if (picoquic_xia_push_client(client, myaddr, serveraddr, conf.control_addr, conf.control_port, conf) == 0) {
-		state = 3; // everything done successfully and logfile needs to close
-	} else {
-		printf("Error while pushing");
-	}
 
 client_done:
 	switch(state) {

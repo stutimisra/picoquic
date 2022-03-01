@@ -1,7 +1,8 @@
-#ifndef PICOQUIC_XIAPUSHGET_H
-#define PICOQUIC_XIAPUSHGET_H
+#ifndef PICOQUIC_XIAPUSHSERVER_H
+#define PICOQUIC_XIAPUSHSERVER_H
 
 #include "localconfig.hpp"
+#include "xcache_quic_server.h"
 // XIA support
 #include "xiaapi.hpp"
 #include "dagaddr.hpp"
@@ -21,19 +22,13 @@ extern "C" {
 #include "util.h"
 };
 
-#define CONFFILE "local.conf"
-#define THEIR_ADDR "THEIR_ADDR" // The THEIR_ADDR entry in config file
-#define CLIENT_AID "CLIENT_AID" // The CLIENT_AID entry in config file
-#define TICKET_STORE "TICKET_STORE"
-#define IFNAME "IFNAME"
-#define CONTROL_PORT "8295"
-#define CONTROL_IP "172.64.0.31"
-
-class LocalConfig;
-
 /** picoquic_xia_push gets the client and server address. 
  * It creates a connection to the server and sends some dummy data 
  * This return 1 if there is an error and 0 if not 
  * */
-int picoquic_xia_push_client(picoquic_quic_t *client);
 
+#define TABLE_SIZE 5000009
+
+int picoquic_xia_push_server(std::string xcache_aid, std::string test_cid);
+
+#endif
